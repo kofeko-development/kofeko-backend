@@ -2,6 +2,11 @@
 
 Advanced Node.js + TypeScript backend boilerplate for Kofeko platform.
 
+## Docs
+
+- Authentication & Authorization (RBAC): `docs/auth-authorization.md`
+- User onboarding (create vs invite): `docs/user-onboarding.md`
+
 ## Features
 
 - Express API with versioned routes (`/api/v1`)
