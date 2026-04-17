@@ -1,0 +1,160 @@
+flowchart TB
+
+%% =========================
+%% CLIENT LAYER
+%% =========================
+subgraph CLIENT_LAYER
+A1[Web App]
+A2[Mobile App]
+end
+
+A1 --> B
+A2 --> B
+
+%% =========================
+%% API GATEWAY
+%% =========================
+subgraph API_LAYER
+B[API Gateway / Load Balancer]
+end
+
+B --> C
+
+%% =========================
+%% APPLICATION LAYER
+%% =========================
+subgraph APPLICATION_LAYER
+
+C["Backend Server (NestJS Modular Monolith)"]
+
+C --> C1[Auth Module]
+C --> C2[Tenant Module]
+C --> C3[User Module]
+C --> C4[RBAC Module]
+C --> C5[Job Module]
+C --> C6[Candidate Module]
+C --> C7[Pipeline Module]
+C --> C8[Evaluation Module]
+C --> C9[Communication Module]
+C --> C10[Analytics Module]
+C --> C11[Audit Module]
+
+end
+
+%% =========================
+%% AUTH FLOW
+%% =========================
+C1 --> D1[JWT Auth]
+C1 --> D2[Session Management]
+
+%% =========================
+%% RBAC FLOW
+%% =========================
+C4 --> E1[Roles]
+C4 --> E2[Permissions]
+C4 --> E3[User Role Mapping]
+
+%% =========================
+%% BUSINESS LOGIC FLOW
+%% =========================
+C5 --> F1[Job Service]
+C6 --> F2[Candidate Service]
+C7 --> F3[Pipeline Engine]
+C8 --> F4[AI Evaluation Service]
+
+%% =========================
+%% AI PROCESSING PIPELINE
+%% =========================
+subgraph AI_PIPELINE
+
+F4 --> G1[Resume Upload]
+G1 --> G2[Resume Parsing]
+G2 --> G3[Feature Extraction]
+G3 --> G4[AI Scoring Engine]
+G4 --> G5[Why Card Generator]
+
+end
+
+%% =========================
+%% DATA LAYER
+%% =========================
+subgraph DATA_LAYER
+
+H1[(PostgreSQL DB)]
+H2[(Redis Cache)]
+H3[(Object Storage - S3)]
+
+end
+
+%% Database connections
+C --> H1
+C --> H2
+G1 --> H3
+
+%% =========================
+%% COMMUNICATION LAYER
+%% =========================
+subgraph COMMUNICATION_LAYER
+
+I1[Email Service]
+I2[Notification Service]
+
+end
+
+C9 --> I1
+C9 --> I2
+
+%% =========================
+%% ANALYTICS LAYER
+%% =========================
+subgraph ANALYTICS_LAYER
+
+J1[Metrics Aggregator]
+J2[Reporting Engine]
+
+end
+
+C10 --> J1
+J1 --> J2
+
+%% =========================
+%% AUDIT & LOGGING
+%% =========================
+subgraph AUDIT_LAYER
+
+K1[Audit Logs]
+K2[Activity Tracker]
+
+end
+
+C11 --> K1
+C11 --> K2
+
+%% =========================
+%% SCALABILITY LAYER
+%% =========================
+subgraph SCALABILITY
+
+L1["Message Queue (Kafka / RabbitMQ)"]
+L2[Worker Services]
+
+end
+
+F4 --> L1
+L1 --> L2
+L2 --> G2
+
+%% =========================
+%% SECURITY & MIDDLEWARE
+%% =========================
+subgraph SECURITY_LAYER
+
+M1[RBAC Guard]
+M2[Rate Limiter]
+M3[Validation Layer]
+
+end
+
+C --> M1
+C --> M2
+C --> M3

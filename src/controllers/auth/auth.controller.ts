@@ -1,0 +1,46 @@
+import { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
+import { catchAsync } from '../../common/utils/catchAsync';
+import { sendSuccess } from '../../common/utils/apiResponse';
+import { getRequestBody } from '../../common/utils/requestBody';
+import { optionalStringValue } from '../../common/utils/requestValue';
+import { authService } from '../../services/auth/auth.service';
+import { LoginInput, RefreshTokenInput, RegisterAdminInput } from '../../types/auth/auth.payloads';
+
+export const registerAdmin = catchAsync(async (req: Request, res: Response) => {
+  const { ip, headers } = req;
+  const userAgent = optionalStringValue(headers['user-agent']);
+  const registerAdminInput = getRequestBody<RegisterAdminInput>(req);
+  const result = await authService.registerAdmin(registerAdminInput, userAgent, ip);
+
+  sendSuccess(res, StatusCodes.CREATED, 'Tenant admin registered successfully', result);
+});
+
+export const login = catchAsync(async (req: Request, res: Response) => {
+  const { ip, headers } = req;
+  const userAgent = optionalStringValue(headers['user-agent']);
+  const loginInput = getRequestBody<LoginInput>(req);
+  const result = await authService.login(loginInput, userAgent, ip);
+
+  sendSuccess(res, StatusCodes.OK, 'Login successful', result);
+});
+
+export const refreshToken = catchAsync(async (req: Request, res: Response) => {
+  const refreshTokenInput = getRequestBody<RefreshTokenInput>(req);
+  const result = await authService.refreshToken(refreshTokenInput);
+
+  sendSuccess(res, StatusCodes.OK, 'Access token refreshed', result);
+});
+
+export const me = catchAsync(async (req: Request, res: Response) => {
+  const { user } = req;
+  const result = await authService.me(String(user?.userId));
+  sendSuccess(res, StatusCodes.OK, 'Current user profile', result);
+});
+
+export const logout = catchAsync(async (req: Request, res: Response) => {
+  const logoutInput = getRequestBody<RefreshTokenInput>(req);
+  await authService.logout(logoutInput.refreshToken);
+
+  sendSuccess(res, StatusCodes.OK, 'Logged out successfully', null);
+});

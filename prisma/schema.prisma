@@ -1,0 +1,310 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CompanyType {
+  startup
+  enterprise
+  agency
+  non_profit
+}
+
+enum UserStatus {
+  active
+  invited
+  suspended
+}
+
+enum JobStatus {
+  draft
+  open
+  paused
+  closed
+}
+
+enum CandidateStatus {
+  new
+  screened
+  shortlisted
+  rejected
+  hired
+}
+
+enum PipelineStage {
+  applied
+  screening
+  technical_interview
+  hr_interview
+  offer
+  hired
+  rejected
+}
+
+enum NotificationChannel {
+  email
+  sms
+  in_app
+}
+
+enum AuditActionType {
+  create
+  update
+  delete
+  login
+  logout
+  evaluate
+}
+
+model Company {
+  id                     String      @id @default(uuid())
+  companyName            String
+  companyAddress         Json
+  industry               String
+  companySize            String
+  companyType            CompanyType
+  foundedYear            Int
+  companyWebsite         String
+  officialCompanyAddress String
+  phoneNumber            String?
+  companyLogo            String
+  shortDescription       String
+  linkedinUrl            String?
+  twitterUrl             String?
+  termsAccepted          Boolean
+  tenant                 Tenant?
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+}
+
+model Tenant {
+  id          String       @id @default(uuid())
+  name        String
+  slug        String       @unique
+  companyId   String?      @unique
+  company     Company?     @relation(fields: [companyId], references: [id])
+  users       User[]
+  roles       Role[]
+  permissions Permission[]
+  userRoles   UserRole[]
+  sessions    Session[]
+  jobs        Job[]
+  candidates  Candidate[]
+  pipelines   Pipeline[]
+  evaluations Evaluation[]
+  notifications Notification[]
+  messages    Message[]
+  metrics     Metric[]
+  auditLogs   AuditLog[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model User {
+  id           String     @id @default(uuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  firstName    String
+  lastName     String
+  email        String
+  passwordHash String
+  status       UserStatus @default(active)
+  userRoles    UserRole[]
+  sessions     Session[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([tenantId, email])
+}
+
+model Role {
+  id              String           @id @default(uuid())
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  name            String
+  description     String?
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([tenantId, name])
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  key             String
+  description     String?
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([tenantId, key])
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  tenantId     String
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@unique([tenantId, roleId, permissionId])
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  roleId    String
+  user      User     @relation(fields: [userId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, userId, roleId])
+}
+
+model Session {
+  id               String    @id @default(uuid())
+  tenantId         String
+  userId           String
+  refreshTokenHash String
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  tenant           Tenant    @relation(fields: [tenantId], references: [id])
+  user             User      @relation(fields: [userId], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Job {
+  id              String      @id @default(uuid())
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id])
+  title           String
+  description     String
+  location        String?
+  employmentType  String?
+  status          JobStatus   @default(draft)
+  openings        Int         @default(1)
+  applications    Pipeline[]
+  evaluations     Evaluation[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Candidate {
+  id               String           @id @default(uuid())
+  tenantId         String
+  tenant           Tenant           @relation(fields: [tenantId], references: [id])
+  firstName        String
+  lastName         String
+  email            String
+  phoneNumber      String?
+  resumeUrl        String?
+  currentCompany   String?
+  yearsOfExperience Float?
+  status           CandidateStatus  @default(new)
+  applications     Pipeline[]
+  evaluations      Evaluation[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([tenantId, email])
+}
+
+model Pipeline {
+  id            String        @id @default(uuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  jobId         String
+  job           Job           @relation(fields: [jobId], references: [id])
+  candidateId   String
+  candidate     Candidate     @relation(fields: [candidateId], references: [id])
+  stage         PipelineStage @default(applied)
+  notes         String?
+  evaluations   Evaluation[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([tenantId, jobId, candidateId])
+}
+
+model Evaluation {
+  id             String    @id @default(uuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  jobId          String
+  job            Job       @relation(fields: [jobId], references: [id])
+  candidateId    String
+  candidate      Candidate @relation(fields: [candidateId], references: [id])
+  pipelineId     String?
+  pipeline       Pipeline? @relation(fields: [pipelineId], references: [id])
+  score          Float
+  summary        String?
+  whyCard        String?
+  evaluatedBy    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Notification {
+  id          String              @id @default(uuid())
+  tenantId    String
+  tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  channel     NotificationChannel
+  title       String
+  body        String
+  recipient   String
+  status      String              @default("queued")
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  subject     String
+  body        String
+  recipient   String
+  direction   String   @default("outbound")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Metric {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  value       Float
+  dimension   String?
+  recordedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String          @id @default(uuid())
+  tenantId    String
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  actorId     String?
+  action      AuditActionType
+  entityType  String
+  entityId    String
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+}
