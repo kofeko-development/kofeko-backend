@@ -5,7 +5,7 @@ import { sendSuccess } from '../../common/utils/apiResponse';
 import { getRequestBody } from '../../common/utils/requestBody';
 import { optionalStringValue } from '../../common/utils/requestValue';
 import { authService } from '../../services/auth/auth.service';
-import { LoginCandidateInput, LoginInput, RefreshTokenInput, RegisterAdminInput, RegisterCandidateInput } from '../../types/auth/auth.payloads';
+import { LoginCandidateInput, LoginInput, RefreshTokenInput, RegisterAdminInput, RegisterCandidateInput, RegisterCompanyRequestInput } from '../../types/auth/auth.payloads';
 
 export const registerAdmin = catchAsync(async (req: Request, res: Response) => {
   const { ip, headers } = req;
@@ -14,6 +14,12 @@ export const registerAdmin = catchAsync(async (req: Request, res: Response) => {
   const result = await authService.registerAdmin(registerAdminInput, userAgent, ip);
 
   sendSuccess(res, StatusCodes.CREATED, 'Tenant admin registered successfully', result);
+});
+
+export const registerCompanyRequest = catchAsync(async (req: Request, res: Response) => {
+  const payload = getRequestBody<RegisterCompanyRequestInput>(req);
+  const result = await authService.registerCompanyRequest(payload);
+  sendSuccess(res, StatusCodes.CREATED, 'Company registration submitted successfully', result);
 });
 
 export const login = catchAsync(async (req: Request, res: Response) => {

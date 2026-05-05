@@ -6,6 +6,7 @@ import {
   me,
   refreshToken,
   registerAdmin,
+  registerCompanyRequest,
   registerCandidate,
 } from '../../controllers/auth/auth.controller';
 import { authenticate } from '../../common/middlewares/authenticate';
@@ -16,12 +17,14 @@ import {
   logoutSchema,
   refreshSchema,
   registerAdminSchema,
+  registerCompanyRequestSchema,
   registerCandidateSchema,
 } from '../../validations/auth/auth.validation';
 
 const authRouter = Router();
 
 authRouter.post('/register-admin', validateRequest(registerAdminSchema), registerAdmin);
+authRouter.post('/register-company-request', validateRequest(registerCompanyRequestSchema), registerCompanyRequest);
 authRouter.post('/login', validateRequest(loginSchema), login);
 authRouter.post('/register-candidate', validateRequest(registerCandidateSchema), registerCandidate);
 authRouter.post('/login-candidate', validateRequest(loginCandidateSchema), loginCandidate);

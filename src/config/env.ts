@@ -11,6 +11,19 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16, 'JWT_REFRESH_SECRET must be at least 16 chars'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  SUPERADMIN_USERNAME: z.string().default('superadmin@123'),
+  SUPERADMIN_PASSWORD: z.string().default('kofeko_123'),
+  FRONTEND_URL: z.string().default('http://localhost:3000'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM_NAME: z.string().default('Kofeko'),
+  SMTP_FROM_EMAIL: z.string().default('no-reply@kofeko.com'),
 });
 
 const parsed = envSchema.safeParse(process.env);
