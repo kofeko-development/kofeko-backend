@@ -10,7 +10,8 @@ import { CreateMessageInput, CreateNotificationInput } from '../../types/communi
 
 export const createNotification = catchAsync(async (req: Request, res: Response) => {
   const notificationInput = getRequestBody<CreateNotificationInput>(req);
-  const result = await communicationService.createNotification(notificationInput);
+  const tenantId = String(req.user?.tenantId);
+  const result = await communicationService.createNotification({ ...notificationInput, tenantId });
   sendSuccess(res, StatusCodes.CREATED, 'Notification created successfully', result);
 });
 
@@ -18,7 +19,7 @@ export const listNotifications = catchAsync(async (req: Request, res: Response) 
   const { query } = req;
   const { page, limit } = query;
   const pagination = parsePagination(page, limit);
-  const tenantId = requireStringValue(query.tenantId, 'tenantId');
+  const tenantId = String(req.user?.tenantId);
   const result = await communicationService.listNotificationsByTenant(tenantId, pagination);
   sendSuccess(res, StatusCodes.OK, 'Notifications fetched successfully', result.items, {
     total: result.total,
@@ -30,7 +31,7 @@ export const listUnreadNotifications = catchAsync(async (req: Request, res: Resp
   const { query } = req;
   const { page, limit } = query;
   const pagination = parsePagination(page, limit);
-  const tenantId = requireStringValue(query.tenantId, 'tenantId');
+  const tenantId = String(req.user?.tenantId);
   const result = await communicationService.listUnreadNotificationsByTenant(tenantId, pagination);
   sendSuccess(res, StatusCodes.OK, 'Unread notifications fetched successfully', result.items, {
     total: result.total,
@@ -41,13 +42,15 @@ export const listUnreadNotifications = catchAsync(async (req: Request, res: Resp
 export const markNotificationAsRead = catchAsync(async (req: Request, res: Response) => {
   const { params } = req;
   const notificationId = requireStringValue(params.id, 'notificationId');
-  const result = await communicationService.markNotificationAsRead(notificationId);
+  const tenantId = String(req.user?.tenantId);
+  const result = await communicationService.markNotificationAsRead(notificationId, tenantId);
   sendSuccess(res, StatusCodes.OK, 'Notification marked as read', result);
 });
 
 export const createMessage = catchAsync(async (req: Request, res: Response) => {
   const messageInput = getRequestBody<CreateMessageInput>(req);
-  const result = await communicationService.createMessage(messageInput);
+  const tenantId = String(req.user?.tenantId);
+  const result = await communicationService.createMessage({ ...messageInput, tenantId });
   sendSuccess(res, StatusCodes.CREATED, 'Message created successfully', result);
 });
 
@@ -55,7 +58,7 @@ export const listMessages = catchAsync(async (req: Request, res: Response) => {
   const { query } = req;
   const { page, limit } = query;
   const pagination = parsePagination(page, limit);
-  const tenantId = requireStringValue(query.tenantId, 'tenantId');
+  const tenantId = String(req.user?.tenantId);
   const result = await communicationService.listMessagesByTenant(tenantId, pagination);
   sendSuccess(res, StatusCodes.OK, 'Messages fetched successfully', result.items, {
     total: result.total,

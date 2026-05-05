@@ -14,21 +14,23 @@ import {
 
 export const createRole = catchAsync(async (req: Request, res: Response) => {
   const roleInput = getRequestBody<CreateRoleInput>(req);
-  const result = await rbacService.createRole(roleInput);
+  const tenantId = String(req.user?.tenantId);
+  const result = await rbacService.createRole({ ...roleInput, tenantId });
 
   sendSuccess(res, StatusCodes.CREATED, 'Role created successfully', result);
 });
 
 export const createPermission = catchAsync(async (req: Request, res: Response) => {
   const permissionInput = getRequestBody<CreatePermissionInput>(req);
-  const result = await rbacService.createPermission(permissionInput);
+  const tenantId = String(req.user?.tenantId);
+  const result = await rbacService.createPermission({ ...permissionInput, tenantId });
 
   sendSuccess(res, StatusCodes.CREATED, 'Permission created successfully', result);
 });
 
 export const attachPermissionToRole = catchAsync(async (req: Request, res: Response) => {
   const { params } = req;
-  const { tenantId } = getRequestBody<{ tenantId: string }>(req);
+  const tenantId = String(req.user?.tenantId);
   const roleId = requireStringValue(params.roleId, 'roleId');
   const permissionId = requireStringValue(params.permissionId, 'permissionId');
   const payload: AttachPermissionToRoleInput = {
@@ -44,7 +46,7 @@ export const attachPermissionToRole = catchAsync(async (req: Request, res: Respo
 
 export const assignRoleToUser = catchAsync(async (req: Request, res: Response) => {
   const { params } = req;
-  const { tenantId } = getRequestBody<{ tenantId: string }>(req);
+  const tenantId = String(req.user?.tenantId);
   const userId = requireStringValue(params.userId, 'userId');
   const roleId = requireStringValue(params.roleId, 'roleId');
   const payload: AssignRoleToUserInput = {
@@ -59,8 +61,8 @@ export const assignRoleToUser = catchAsync(async (req: Request, res: Response) =
 });
 
 export const getUserPermissions = catchAsync(async (req: Request, res: Response) => {
-  const { query, params } = req;
-  const tenantId = requireStringValue(query.tenantId, 'tenantId');
+  const { params } = req;
+  const tenantId = String(req.user?.tenantId);
   const userId = requireStringValue(params.userId, 'userId');
   const result = await rbacService.getUserPermissions(tenantId, userId);
 

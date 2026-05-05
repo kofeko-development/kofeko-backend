@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export const createPipelineSchema = z.object({
   body: z.object({
-    tenantId: z.uuid(),
     jobId: z.uuid(),
     candidateId: z.uuid(),
     stage: z.enum(['applied', 'screening', 'technical_interview', 'hr_interview', 'offer', 'hired', 'rejected']).optional(),
@@ -24,7 +23,6 @@ export const pipelineIdParamSchema = z.object({
 
 export const pipelineListQuerySchema = z.object({
   query: z.object({
-    tenantId: z.uuid(),
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().max(100).optional(),
   }),

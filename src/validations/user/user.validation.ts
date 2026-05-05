@@ -3,7 +3,6 @@ import { ROLE_NAMES } from '../../common/constants/roles';
 
 export const createUserSchema = z.object({
   body: z.object({
-    tenantId: z.uuid(),
     firstName: z.string().min(2).max(80),
     lastName: z.string().min(1).max(80),
     email: z.email(),
@@ -14,7 +13,6 @@ export const createUserSchema = z.object({
 
 export const inviteUserSchema = z.object({
   body: z.object({
-    tenantId: z.uuid(),
     firstName: z.string().min(2).max(80),
     lastName: z.string().min(1).max(80),
     email: z.email(),
@@ -40,7 +38,5 @@ export const userIdParamSchema = z.object({
 });
 
 export const userListQuerySchema = z.object({
-  query: z.object({
-    tenantId: z.uuid(),
-  }),
+  query: z.object({}),
 });

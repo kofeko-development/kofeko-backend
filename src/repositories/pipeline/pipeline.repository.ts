@@ -8,8 +8,8 @@ export const pipelineRepository = {
     return prisma.pipeline.create({ data });
   },
 
-  async findById(id: string): Promise<Pipeline | null> {
-    return prisma.pipeline.findUnique({ where: { id } });
+  async findByIdAndTenant(id: string, tenantId: string): Promise<Pipeline | null> {
+    return prisma.pipeline.findFirst({ where: { id, tenantId } });
   },
 
   async listByTenant(tenantId: string, pagination: PaginationInput): Promise<{ items: Pipeline[]; total: number }> {
@@ -26,7 +26,11 @@ export const pipelineRepository = {
     return { items, total };
   },
 
-  async updateById(id: string, data: UpdatePipelineInput): Promise<Pipeline> {
-    return prisma.pipeline.update({ where: { id }, data });
+  async updateByIdAndTenant(id: string, tenantId: string, data: UpdatePipelineInput): Promise<Pipeline> {
+    const current = await prisma.pipeline.findFirst({ where: { id, tenantId } });
+    if (!current) {
+      throw new Error('Pipeline not found in tenant');
+    }
+    return prisma.pipeline.update({ where: { id: current.id }, data });
   },
 };

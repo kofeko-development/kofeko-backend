@@ -7,8 +7,8 @@ export const jobRepository = {
     return prisma.job.create({ data });
   },
 
-  async findById(id: string): Promise<Job | null> {
-    return prisma.job.findUnique({ where: { id } });
+  async findByIdAndTenant(id: string, tenantId: string): Promise<Job | null> {
+    return prisma.job.findFirst({ where: { id, tenantId } });
   },
 
   async listByTenant(tenantId: string, page: number, limit: number): Promise<{ items: Job[]; total: number }> {
@@ -25,7 +25,14 @@ export const jobRepository = {
     return { items, total };
   },
 
-  async updateById(id: string, data: UpdateJobInput): Promise<Job> {
-    return prisma.job.update({ where: { id }, data });
+  async updateByIdAndTenant(id: string, tenantId: string, data: UpdateJobInput): Promise<Job> {
+    const current = await prisma.job.findFirst({ where: { id, tenantId } });
+    if (!current) {
+      throw new Error('Job not found in tenant');
+    }
+    return prisma.job.update({
+      where: { id: current.id },
+      data,
+    });
   },
 };

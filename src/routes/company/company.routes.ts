@@ -1,5 +1,8 @@
 import { Router } from 'express';
+import { authenticate } from '../../common/middlewares/authenticate';
+import { authorize } from '../../common/middlewares/authorize';
 import { validateRequest } from '../../common/middlewares/validateRequest';
+import { PERMISSIONS } from '../../common/constants/permissions';
 import {
   getCompany,
   registerCompany,
@@ -13,8 +16,8 @@ import {
 
 const companyRouter = Router();
 
-companyRouter.post('/register', validateRequest(createCompanySchema), registerCompany);
-companyRouter.get('/:id', validateRequest(companyIdParamSchema), getCompany);
-companyRouter.patch('/:id', validateRequest(updateCompanySchema), updateCompany);
+companyRouter.post('/register', authenticate, authorize([PERMISSIONS.COMPANY_UPDATE]), validateRequest(createCompanySchema), registerCompany);
+companyRouter.get('/:id', authenticate, authorize([PERMISSIONS.COMPANY_READ]), validateRequest(companyIdParamSchema), getCompany);
+companyRouter.patch('/:id', authenticate, authorize([PERMISSIONS.COMPANY_UPDATE]), validateRequest(updateCompanySchema), updateCompany);
 
 export default companyRouter;

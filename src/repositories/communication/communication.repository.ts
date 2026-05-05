@@ -3,6 +3,10 @@ import { prisma } from '../../config/prisma';
 import { CreateMessageInput, CreateNotificationInput } from '../../types/communication/communication.types';
 
 export const communicationRepository = {
+  async findNotificationByIdAndTenant(id: string, tenantId: string): Promise<Notification | null> {
+    return prisma.notification.findFirst({ where: { id, tenantId } });
+  },
+
   async createNotification(data: CreateNotificationInput): Promise<Notification> {
     return prisma.notification.create({ data });
   },
@@ -53,9 +57,11 @@ export const communicationRepository = {
     });
   },
 
-  async markNotificationAsRead(id: string): Promise<Notification> {
+  async markNotificationAsRead(id: string, tenantId: string): Promise<Notification> {
+    const current = await prisma.notification.findFirst({ where: { id, tenantId } });
+    if (!current) throw new Error('Notification not found in tenant');
     return prisma.notification.update({
-      where: { id },
+      where: { id: current.id },
       data: {
         status: 'read',
       },

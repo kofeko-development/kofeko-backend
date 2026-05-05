@@ -62,8 +62,8 @@ export const userService = {
     });
   },
 
-  async getUserById(id: string): Promise<User> {
-    const user = await userRepository.findById(id);
+  async getUserById(id: string, tenantId: string): Promise<User> {
+    const user = await userRepository.findByIdAndTenant(id, tenantId);
 
     if (!user) {
       throw new AppError('User not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
@@ -76,8 +76,8 @@ export const userService = {
     return userRepository.listByTenant(tenantId);
   },
 
-  async updateUser(id: string, payload: UpdateUserInput): Promise<User> {
-    await this.getUserById(id);
-    return userRepository.updateById(id, payload);
+  async updateUser(id: string, tenantId: string, payload: UpdateUserInput): Promise<User> {
+    await this.getUserById(id, tenantId);
+    return userRepository.updateByIdAndTenant(id, tenantId, payload);
   },
 };

@@ -8,11 +8,12 @@ import { CreateCandidateInput, UpdateCandidateInput } from '../../types/candidat
 import { PaginationInput } from '../../common/utils/pagination';
 
 export const candidateService = {
-  async createCandidate(payload: CreateCandidateInput): Promise<Candidate> {
+  async createCandidate(payload: CreateCandidateInput, actorId?: string): Promise<Candidate> {
     const candidate = await candidateRepository.create(payload);
     await auditService.createAuditLog({
       tenantId: payload.tenantId,
       action: 'create',
+      actorId,
       entityType: 'Candidate',
       entityId: candidate.id,
       metadata: { email: candidate.email, status: candidate.status },
@@ -20,8 +21,8 @@ export const candidateService = {
     return candidate;
   },
 
-  async getCandidateById(id: string): Promise<Candidate> {
-    const candidate = await candidateRepository.findById(id);
+  async getCandidateById(id: string, tenantId: string): Promise<Candidate> {
+    const candidate = await candidateRepository.findByIdAndTenant(id, tenantId);
     if (!candidate) {
       throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
@@ -32,12 +33,13 @@ export const candidateService = {
     return candidateRepository.listByTenant(tenantId, pagination.page, pagination.limit);
   },
 
-  async updateCandidate(id: string, payload: UpdateCandidateInput): Promise<Candidate> {
-    const currentCandidate = await this.getCandidateById(id);
-    const updatedCandidate = await candidateRepository.updateById(id, payload);
+  async updateCandidate(id: string, tenantId: string, payload: UpdateCandidateInput, actorId?: string): Promise<Candidate> {
+    const currentCandidate = await this.getCandidateById(id, tenantId);
+    const updatedCandidate = await candidateRepository.updateByIdAndTenant(id, tenantId, payload);
     await auditService.createAuditLog({
       tenantId: currentCandidate.tenantId,
       action: 'update',
+      actorId,
       entityType: 'Candidate',
       entityId: updatedCandidate.id,
       metadata: { before: currentCandidate, after: updatedCandidate },

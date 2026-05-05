@@ -13,6 +13,16 @@ type BootstrapTenantAdminInput = {
   permissionKeys: string[];
 };
 
+type BootstrapCandidateUserInput = {
+  tenantSlug: string;
+  tenantName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  passwordHash: string;
+  permissionKeys: string[];
+};
+
 export const authRepository = {
   async bootstrapTenantAdmin(input: BootstrapTenantAdminInput): Promise<{ tenant: Tenant; user: User; permissions: Permission[] }> {
     return prisma.$transaction(async (tx) => {
@@ -101,6 +111,94 @@ export const authRepository = {
       });
 
       return { tenant, user, permissions };
+    }, {
+      maxWait: 10000,
+      timeout: 30000,
+    });
+  },
+
+  async bootstrapCandidateUser(input: BootstrapCandidateUserInput): Promise<{ tenant: Tenant; user: User }> {
+    return prisma.$transaction(async (tx) => {
+      let tenant = await tx.tenant.findUnique({
+        where: { slug: input.tenantSlug },
+      });
+
+      if (!tenant) {
+        tenant = await tx.tenant.create({
+          data: {
+            name: input.tenantName,
+            slug: input.tenantSlug,
+          },
+        });
+      }
+
+      await tx.permission.createMany({
+        data: input.permissionKeys.map((key) => ({
+          tenantId: tenant.id,
+          key,
+        })),
+        skipDuplicates: true,
+      });
+
+      const candidateRole = await tx.role.upsert({
+        where: {
+          tenantId_name: {
+            tenantId: tenant.id,
+            name: ROLE_NAMES.CANDIDATE,
+          },
+        },
+        update: {
+          description: 'Default candidate role',
+        },
+        create: {
+          tenantId: tenant.id,
+          name: ROLE_NAMES.CANDIDATE,
+          description: 'Default candidate role',
+        },
+      });
+
+      const candidatePermissions = DEFAULT_ROLE_PERMISSION_MATRIX[ROLE_NAMES.CANDIDATE];
+      if (candidatePermissions.length > 0) {
+        const permissions = await tx.permission.findMany({
+          where: {
+            tenantId: tenant.id,
+            key: { in: candidatePermissions },
+          },
+        });
+
+        await tx.rolePermission.createMany({
+          data: permissions.map((permission) => ({
+            tenantId: tenant.id,
+            roleId: candidateRole.id,
+            permissionId: permission.id,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      const user = await tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email,
+          passwordHash: input.passwordHash,
+          status: UserStatus.active,
+        },
+      });
+
+      await tx.userRole.create({
+        data: {
+          tenantId: tenant.id,
+          userId: user.id,
+          roleId: candidateRole.id,
+        },
+      });
+
+      return { tenant, user };
+    }, {
+      maxWait: 10000,
+      timeout: 30000,
     });
   },
 
@@ -114,14 +212,42 @@ export const authRepository = {
       },
       include: {
         tenant: true,
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
   },
 
-  async findUserById(id: string): Promise<(User & { tenant: Tenant }) | null> {
-    return prisma.user.findUnique({
-      where: { id },
-      include: { tenant: true },
+  async findUserByIdAndTenant(id: string, tenantId: string): Promise<(User & { tenant: Tenant }) | null> {
+    return prisma.user.findFirst({
+      where: { id, tenantId },
+      include: {
+        tenant: true,
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
   },
 

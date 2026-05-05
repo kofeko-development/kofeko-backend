@@ -1,4 +1,7 @@
 import { Message, Notification } from '@prisma/client';
+import { StatusCodes } from 'http-status-codes';
+import { AppError } from '../../common/errors/AppError';
+import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { communicationRepository } from '../../repositories/communication/communication.repository';
 import { CreateMessageInput, CreateNotificationInput, PipelineStageNotificationInput } from '../../types/communication/communication.types';
 import { PaginationInput } from '../../common/utils/pagination';
@@ -16,8 +19,12 @@ export const communicationService = {
     return communicationRepository.listUnreadNotificationsByTenant(tenantId, pagination.page, pagination.limit);
   },
 
-  async markNotificationAsRead(id: string): Promise<Notification> {
-    return communicationRepository.markNotificationAsRead(id);
+  async markNotificationAsRead(id: string, tenantId: string): Promise<Notification> {
+    const notification = await communicationRepository.findNotificationByIdAndTenant(id, tenantId);
+    if (!notification) {
+      throw new AppError('Notification not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+    return communicationRepository.markNotificationAsRead(id, tenantId);
   },
 
   async createMessage(payload: CreateMessageInput): Promise<Message> {

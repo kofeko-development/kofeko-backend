@@ -10,14 +10,17 @@ import { CreateCandidateInput, UpdateCandidateInput } from '../../types/candidat
 
 export const createCandidate = catchAsync(async (req: Request, res: Response) => {
   const candidateInput = getRequestBody<CreateCandidateInput>(req);
-  const result = await candidateService.createCandidate(candidateInput);
+  const tenantId = String(req.user?.tenantId);
+  const actorId = String(req.user?.userId);
+  const result = await candidateService.createCandidate({ ...candidateInput, tenantId }, actorId);
   sendSuccess(res, StatusCodes.CREATED, 'Candidate created successfully', result);
 });
 
 export const getCandidate = catchAsync(async (req: Request, res: Response) => {
   const { params } = req;
   const candidateId = requireStringValue(params.id, 'candidateId');
-  const result = await candidateService.getCandidateById(candidateId);
+  const tenantId = String(req.user?.tenantId);
+  const result = await candidateService.getCandidateById(candidateId, tenantId);
   sendSuccess(res, StatusCodes.OK, 'Candidate fetched successfully', result);
 });
 
@@ -25,7 +28,7 @@ export const listCandidates = catchAsync(async (req: Request, res: Response) => 
   const { query } = req;
   const { page, limit } = query;
   const pagination = parsePagination(page, limit);
-  const tenantId = requireStringValue(query.tenantId, 'tenantId');
+  const tenantId = String(req.user?.tenantId);
   const result = await candidateService.listCandidatesByTenant(tenantId, pagination);
   sendSuccess(res, StatusCodes.OK, 'Candidates fetched successfully', result.items, {
     total: result.total,
@@ -37,6 +40,8 @@ export const updateCandidate = catchAsync(async (req: Request, res: Response) =>
   const { params } = req;
   const candidateId = requireStringValue(params.id, 'candidateId');
   const candidateInput = getRequestBody<UpdateCandidateInput>(req);
-  const result = await candidateService.updateCandidate(candidateId, candidateInput);
+  const tenantId = String(req.user?.tenantId);
+  const actorId = String(req.user?.userId);
+  const result = await candidateService.updateCandidate(candidateId, tenantId, candidateInput, actorId);
   sendSuccess(res, StatusCodes.OK, 'Candidate updated successfully', result);
 });

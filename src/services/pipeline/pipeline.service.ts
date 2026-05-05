@@ -55,11 +55,12 @@ const assertValidStageTransition = (currentStage: PipelineStage, nextStage: Pipe
 };
 
 export const pipelineService = {
-  async createPipeline(payload: CreatePipelineInput): Promise<Pipeline> {
+  async createPipeline(payload: CreatePipelineInput, actorId?: string): Promise<Pipeline> {
     const pipeline = await pipelineRepository.create(payload);
     await auditService.createAuditLog({
       tenantId: payload.tenantId,
       action: 'create',
+      actorId,
       entityType: 'Pipeline',
       entityId: pipeline.id,
       metadata: { jobId: pipeline.jobId, candidateId: pipeline.candidateId, stage: pipeline.stage },
@@ -67,8 +68,8 @@ export const pipelineService = {
     return pipeline;
   },
 
-  async getPipelineById(id: string): Promise<Pipeline> {
-    const pipeline = await pipelineRepository.findById(id);
+  async getPipelineById(id: string, tenantId: string): Promise<Pipeline> {
+    const pipeline = await pipelineRepository.findByIdAndTenant(id, tenantId);
     if (!pipeline) {
       throw new AppError('Pipeline record not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
@@ -79,10 +80,10 @@ export const pipelineService = {
     return pipelineRepository.listByTenant(tenantId, pagination);
   },
 
-  async updatePipeline(id: string, payload: UpdatePipelineInput): Promise<Pipeline> {
-    const currentPipeline = await this.getPipelineById(id);
-    const currentCandidate = await candidateRepository.findById(currentPipeline.candidateId);
-    const currentJob = await jobRepository.findById(currentPipeline.jobId);
+  async updatePipeline(id: string, tenantId: string, payload: UpdatePipelineInput, actorId?: string): Promise<Pipeline> {
+    const currentPipeline = await this.getPipelineById(id, tenantId);
+    const currentCandidate = await candidateRepository.findByIdAndTenant(currentPipeline.candidateId, tenantId);
+    const currentJob = await jobRepository.findByIdAndTenant(currentPipeline.jobId, tenantId);
 
     if (!currentCandidate) {
       throw new AppError('Pipeline candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
@@ -100,13 +101,13 @@ export const pipelineService = {
 
     const candidateStatus = resolveCandidateStatusFromStage(nextStage);
 
-    const updatedPipeline = await pipelineRepository.updateById(id, {
+    const updatedPipeline = await pipelineRepository.updateByIdAndTenant(id, tenantId, {
       ...payload,
       stage: nextStage,
     });
 
     if (payload.stage && payload.stage !== currentPipeline.stage) {
-      await candidateRepository.updateById(currentCandidate.id, { status: candidateStatus });
+      await candidateRepository.updateByIdAndTenant(currentCandidate.id, tenantId, { status: candidateStatus });
 
       await communicationService.notifyPipelineStageChange({
         tenantId: currentPipeline.tenantId,
@@ -120,6 +121,7 @@ export const pipelineService = {
     await auditService.createAuditLog({
       tenantId: currentPipeline.tenantId,
       action: 'update',
+      actorId,
       entityType: 'Pipeline',
       entityId: updatedPipeline.id,
       metadata: {

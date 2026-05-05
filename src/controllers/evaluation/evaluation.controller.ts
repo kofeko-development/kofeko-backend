@@ -14,14 +14,17 @@ import {
 
 export const createEvaluation = catchAsync(async (req: Request, res: Response) => {
   const evaluationInput = getRequestBody<CreateEvaluationInput>(req);
-  const result = await evaluationService.createEvaluation(evaluationInput);
+  const tenantId = String(req.user?.tenantId);
+  const actorId = String(req.user?.userId);
+  const result = await evaluationService.createEvaluation({ ...evaluationInput, tenantId }, actorId);
   sendSuccess(res, StatusCodes.CREATED, 'Evaluation created successfully', result);
 });
 
 export const getEvaluation = catchAsync(async (req: Request, res: Response) => {
   const { params } = req;
   const evaluationId = requireStringValue(params.id, 'evaluationId');
-  const result = await evaluationService.getEvaluationById(evaluationId);
+  const tenantId = String(req.user?.tenantId);
+  const result = await evaluationService.getEvaluationById(evaluationId, tenantId);
   sendSuccess(res, StatusCodes.OK, 'Evaluation fetched successfully', result);
 });
 
@@ -29,7 +32,7 @@ export const listEvaluations = catchAsync(async (req: Request, res: Response) =>
   const { query } = req;
   const { page, limit } = query;
   const pagination = parsePagination(page, limit);
-  const tenantId = requireStringValue(query.tenantId, 'tenantId');
+  const tenantId = String(req.user?.tenantId);
   const result = await evaluationService.listEvaluationsByTenant(tenantId, pagination);
   sendSuccess(res, StatusCodes.OK, 'Evaluations fetched successfully', result.items, {
     total: result.total,
@@ -47,6 +50,8 @@ export const updateEvaluation = catchAsync(async (req: Request, res: Response) =
   const { params } = req;
   const evaluationId = requireStringValue(params.id, 'evaluationId');
   const evaluationInput = getRequestBody<UpdateEvaluationInput>(req);
-  const result = await evaluationService.updateEvaluation(evaluationId, evaluationInput);
+  const tenantId = String(req.user?.tenantId);
+  const actorId = String(req.user?.userId);
+  const result = await evaluationService.updateEvaluation(evaluationId, tenantId, evaluationInput, actorId);
   sendSuccess(res, StatusCodes.OK, 'Evaluation updated successfully', result);
 });

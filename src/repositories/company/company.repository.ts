@@ -3,22 +3,35 @@ import { prisma } from '../../config/prisma';
 import { CreateCompanyInput, UpdateCompanyInput } from '../../types/company/company.types';
 
 export const companyRepository = {
-  async create(data: CreateCompanyInput): Promise<Company> {
-    return prisma.company.create({
-      data: {
-        ...data,
-        companyAddress: data.companyAddress,
-      },
+  async createForTenant(tenantId: string, data: CreateCompanyInput): Promise<Company> {
+    const company = await prisma.company.create({
+      data: { ...data, companyAddress: data.companyAddress },
     });
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { companyId: company.id },
+    });
+    return company;
   },
 
-  async findById(id: string): Promise<Company | null> {
-    return prisma.company.findUnique({ where: { id } });
+  async findByTenantId(tenantId: string): Promise<Company | null> {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { company: true },
+    });
+    return tenant?.company ?? null;
   },
 
-  async updateById(id: string, data: UpdateCompanyInput): Promise<Company> {
+  async updateByTenantId(tenantId: string, data: UpdateCompanyInput): Promise<Company> {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { companyId: true },
+    });
+    if (!tenant?.companyId) {
+      throw new Error('Company not found for tenant');
+    }
     return prisma.company.update({
-      where: { id },
+      where: { id: tenant.companyId },
       data,
     });
   },

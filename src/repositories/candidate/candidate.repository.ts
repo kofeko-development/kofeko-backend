@@ -7,8 +7,8 @@ export const candidateRepository = {
     return prisma.candidate.create({ data });
   },
 
-  async findById(id: string): Promise<Candidate | null> {
-    return prisma.candidate.findUnique({ where: { id } });
+  async findByIdAndTenant(id: string, tenantId: string): Promise<Candidate | null> {
+    return prisma.candidate.findFirst({ where: { id, tenantId } });
   },
 
   async listByTenant(tenantId: string, page: number, limit: number): Promise<{ items: Candidate[]; total: number }> {
@@ -25,7 +25,11 @@ export const candidateRepository = {
     return { items, total };
   },
 
-  async updateById(id: string, data: UpdateCandidateInput): Promise<Candidate> {
-    return prisma.candidate.update({ where: { id }, data });
+  async updateByIdAndTenant(id: string, tenantId: string, data: UpdateCandidateInput): Promise<Candidate> {
+    const current = await prisma.candidate.findFirst({ where: { id, tenantId } });
+    if (!current) {
+      throw new Error('Candidate not found in tenant');
+    }
+    return prisma.candidate.update({ where: { id: current.id }, data });
   },
 };

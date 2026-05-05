@@ -9,7 +9,7 @@ import { evaluationRepository } from '../../repositories/evaluation/evaluation.r
 import { CreateEvaluationInput, EvaluationInsightPreviewInput, UpdateEvaluationInput } from '../../types/evaluation/evaluation.types';
 
 export const evaluationService = {
-  async createEvaluation(payload: CreateEvaluationInput): Promise<Evaluation> {
+  async createEvaluation(payload: CreateEvaluationInput, actorId?: string): Promise<Evaluation> {
     const evaluationInput = {
       ...payload,
       whyCard: payload.whyCard?.trim() || buildEvaluationWhyCard({
@@ -21,6 +21,7 @@ export const evaluationService = {
     await auditService.createAuditLog({
       tenantId: payload.tenantId,
       action: 'evaluate',
+      actorId,
       entityType: 'Evaluation',
       entityId: evaluation.id,
       metadata: {
@@ -33,8 +34,8 @@ export const evaluationService = {
     return evaluation;
   },
 
-  async getEvaluationById(id: string): Promise<Evaluation> {
-    const evaluation = await evaluationRepository.findById(id);
+  async getEvaluationById(id: string, tenantId: string): Promise<Evaluation> {
+    const evaluation = await evaluationRepository.findByIdAndTenant(id, tenantId);
     if (!evaluation) {
       throw new AppError('Evaluation not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
@@ -45,11 +46,11 @@ export const evaluationService = {
     return evaluationRepository.listByTenant(tenantId, pagination);
   },
 
-  async updateEvaluation(id: string, payload: UpdateEvaluationInput): Promise<Evaluation> {
-    const currentEvaluation = await this.getEvaluationById(id);
+  async updateEvaluation(id: string, tenantId: string, payload: UpdateEvaluationInput, actorId?: string): Promise<Evaluation> {
+    const currentEvaluation = await this.getEvaluationById(id, tenantId);
     const nextScore = payload.score ?? currentEvaluation.score;
     const nextSummary = payload.summary ?? currentEvaluation.summary ?? undefined;
-    const updatedEvaluation = await evaluationRepository.updateById(id, {
+    const updatedEvaluation = await evaluationRepository.updateByIdAndTenant(id, tenantId, {
       ...payload,
       whyCard: payload.whyCard?.trim() || buildEvaluationWhyCard({
         score: nextScore,
@@ -59,6 +60,7 @@ export const evaluationService = {
     await auditService.createAuditLog({
       tenantId: currentEvaluation.tenantId,
       action: 'update',
+      actorId,
       entityType: 'Evaluation',
       entityId: updatedEvaluation.id,
       metadata: { before: currentEvaluation, after: updatedEvaluation },

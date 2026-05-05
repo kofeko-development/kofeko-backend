@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export const createCandidateSchema = z.object({
   body: z.object({
-    tenantId: z.uuid(),
     firstName: z.string().min(2).max(80),
     lastName: z.string().min(1).max(80),
     email: z.email(),
@@ -16,7 +15,7 @@ export const createCandidateSchema = z.object({
 
 export const updateCandidateSchema = z.object({
   params: z.object({ id: z.uuid() }),
-  body: createCandidateSchema.shape.body.omit({ tenantId: true, email: true }).partial(),
+  body: createCandidateSchema.shape.body.omit({ email: true }).partial(),
 });
 
 export const candidateIdParamSchema = z.object({
@@ -25,7 +24,6 @@ export const candidateIdParamSchema = z.object({
 
 export const candidateListQuerySchema = z.object({
   query: z.object({
-    tenantId: z.uuid(),
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().max(100).optional(),
   }),

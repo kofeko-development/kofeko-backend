@@ -6,12 +6,12 @@ import { companyRepository } from '../../repositories/company/company.repository
 import { CreateCompanyInput, UpdateCompanyInput } from '../../types/company/company.types';
 
 export const companyService = {
-  async createCompany(payload: CreateCompanyInput): Promise<Company> {
-    return companyRepository.create(payload);
+  async createCompany(tenantId: string, payload: CreateCompanyInput): Promise<Company> {
+    return companyRepository.createForTenant(tenantId, payload);
   },
 
-  async getCompanyById(id: string): Promise<Company> {
-    const company = await companyRepository.findById(id);
+  async getCompanyByTenantId(tenantId: string): Promise<Company> {
+    const company = await companyRepository.findByTenantId(tenantId);
 
     if (!company) {
       throw new AppError('Company not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
@@ -20,8 +20,8 @@ export const companyService = {
     return company;
   },
 
-  async updateCompany(id: string, payload: UpdateCompanyInput): Promise<Company> {
-    await this.getCompanyById(id);
-    return companyRepository.updateById(id, payload);
+  async updateCompanyByTenantId(tenantId: string, payload: UpdateCompanyInput): Promise<Company> {
+    await this.getCompanyByTenantId(tenantId);
+    return companyRepository.updateByTenantId(tenantId, payload);
   },
 };

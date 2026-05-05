@@ -5,7 +5,7 @@ import { sendSuccess } from '../../common/utils/apiResponse';
 import { getRequestBody } from '../../common/utils/requestBody';
 import { optionalStringValue } from '../../common/utils/requestValue';
 import { authService } from '../../services/auth/auth.service';
-import { LoginInput, RefreshTokenInput, RegisterAdminInput } from '../../types/auth/auth.payloads';
+import { LoginCandidateInput, LoginInput, RefreshTokenInput, RegisterAdminInput, RegisterCandidateInput } from '../../types/auth/auth.payloads';
 
 export const registerAdmin = catchAsync(async (req: Request, res: Response) => {
   const { ip, headers } = req;
@@ -25,6 +25,24 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   sendSuccess(res, StatusCodes.OK, 'Login successful', result);
 });
 
+export const registerCandidate = catchAsync(async (req: Request, res: Response) => {
+  const { ip, headers } = req;
+  const userAgent = optionalStringValue(headers['user-agent']);
+  const registerCandidateInput = getRequestBody<RegisterCandidateInput>(req);
+  const result = await authService.registerCandidate(registerCandidateInput, userAgent, ip);
+
+  sendSuccess(res, StatusCodes.CREATED, 'Candidate registered successfully', result);
+});
+
+export const loginCandidate = catchAsync(async (req: Request, res: Response) => {
+  const { ip, headers } = req;
+  const userAgent = optionalStringValue(headers['user-agent']);
+  const loginCandidateInput = getRequestBody<LoginCandidateInput>(req);
+  const result = await authService.loginCandidate(loginCandidateInput, userAgent, ip);
+
+  sendSuccess(res, StatusCodes.OK, 'Candidate login successful', result);
+});
+
 export const refreshToken = catchAsync(async (req: Request, res: Response) => {
   const refreshTokenInput = getRequestBody<RefreshTokenInput>(req);
   const result = await authService.refreshToken(refreshTokenInput);
@@ -34,7 +52,7 @@ export const refreshToken = catchAsync(async (req: Request, res: Response) => {
 
 export const me = catchAsync(async (req: Request, res: Response) => {
   const { user } = req;
-  const result = await authService.me(String(user?.userId));
+  const result = await authService.me(String(user?.userId), String(user?.tenantId));
   sendSuccess(res, StatusCodes.OK, 'Current user profile', result);
 });
 

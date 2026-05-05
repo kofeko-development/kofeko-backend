@@ -8,8 +8,8 @@ export const evaluationRepository = {
     return prisma.evaluation.create({ data });
   },
 
-  async findById(id: string): Promise<Evaluation | null> {
-    return prisma.evaluation.findUnique({ where: { id } });
+  async findByIdAndTenant(id: string, tenantId: string): Promise<Evaluation | null> {
+    return prisma.evaluation.findFirst({ where: { id, tenantId } });
   },
 
   async listByTenant(tenantId: string, pagination: PaginationInput): Promise<{ items: Evaluation[]; total: number }> {
@@ -26,7 +26,11 @@ export const evaluationRepository = {
     return { items, total };
   },
 
-  async updateById(id: string, data: UpdateEvaluationInput): Promise<Evaluation> {
-    return prisma.evaluation.update({ where: { id }, data });
+  async updateByIdAndTenant(id: string, tenantId: string, data: UpdateEvaluationInput): Promise<Evaluation> {
+    const current = await prisma.evaluation.findFirst({ where: { id, tenantId } });
+    if (!current) {
+      throw new Error('Evaluation not found in tenant');
+    }
+    return prisma.evaluation.update({ where: { id: current.id }, data });
   },
 };

@@ -47,8 +47,8 @@ export const userRepository = {
     });
   },
 
-  async findById(id: string): Promise<User | null> {
-    return prisma.user.findUnique({ where: { id } });
+  async findByIdAndTenant(id: string, tenantId: string): Promise<User | null> {
+    return prisma.user.findFirst({ where: { id, tenantId } });
   },
 
   async findByTenantAndEmail(tenantId: string, email: string): Promise<User | null> {
@@ -69,7 +69,11 @@ export const userRepository = {
     });
   },
 
-  async updateById(id: string, data: UpdateUserInput): Promise<User> {
-    return prisma.user.update({ where: { id }, data });
+  async updateByIdAndTenant(id: string, tenantId: string, data: UpdateUserInput): Promise<User> {
+    const current = await prisma.user.findFirst({ where: { id, tenantId } });
+    if (!current) {
+      throw new Error('User not found in tenant');
+    }
+    return prisma.user.update({ where: { id: current.id }, data });
   },
 };

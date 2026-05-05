@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export const createNotificationSchema = z.object({
   body: z.object({
-    tenantId: z.uuid(),
     channel: z.enum(['email', 'sms', 'in_app']),
     title: z.string().min(2).max(200),
     body: z.string().min(2).max(4000),
@@ -13,7 +12,6 @@ export const createNotificationSchema = z.object({
 
 export const createMessageSchema = z.object({
   body: z.object({
-    tenantId: z.uuid(),
     subject: z.string().min(2).max(200),
     body: z.string().min(2).max(4000),
     recipient: z.string().min(2).max(200),
@@ -23,7 +21,6 @@ export const createMessageSchema = z.object({
 
 export const tenantQuerySchema = z.object({
   query: z.object({
-    tenantId: z.uuid(),
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().max(100).optional(),
   }),

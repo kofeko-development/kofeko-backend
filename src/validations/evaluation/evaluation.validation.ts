@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export const createEvaluationSchema = z.object({
   body: z.object({
-    tenantId: z.uuid(),
     jobId: z.uuid(),
     candidateId: z.uuid(),
     pipelineId: z.uuid().optional(),
@@ -30,7 +29,6 @@ export const evaluationIdParamSchema = z.object({
 
 export const evaluationListQuerySchema = z.object({
   query: z.object({
-    tenantId: z.uuid(),
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().max(100).optional(),
   }),
