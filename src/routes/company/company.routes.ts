@@ -9,15 +9,14 @@ import {
   updateCompany,
 } from '../../controllers/company/company.controller';
 import {
-  companyIdParamSchema,
   createCompanySchema,
   updateCompanySchema,
 } from '../../validations/company/company.validation';
 
 const companyRouter = Router();
 
-companyRouter.post('/register', authenticate, authorize([PERMISSIONS.COMPANY_UPDATE]), validateRequest(createCompanySchema), registerCompany);
-companyRouter.get('/:id', authenticate, authorize([PERMISSIONS.COMPANY_READ]), validateRequest(companyIdParamSchema), getCompany);
-companyRouter.patch('/:id', authenticate, authorize([PERMISSIONS.COMPANY_UPDATE]), validateRequest(updateCompanySchema), updateCompany);
+companyRouter.post('/', authenticate, authorize([PERMISSIONS.COMPANY_UPDATE]), validateRequest(createCompanySchema), registerCompany);
+companyRouter.get('/', authenticate, authorize([PERMISSIONS.COMPANY_READ]), getCompany);
+companyRouter.patch('/', authenticate, authorize([PERMISSIONS.COMPANY_UPDATE]), validateRequest(updateCompanySchema), updateCompany);
 
 export default companyRouter;

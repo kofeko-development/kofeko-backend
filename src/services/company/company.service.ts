@@ -4,10 +4,20 @@ import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { companyRepository } from '../../repositories/company/company.repository';
 import { CreateCompanyInput, UpdateCompanyInput } from '../../types/company/company.types';
+import { auditService } from '../audit/audit.service';
 
 export const companyService = {
-  async createCompany(tenantId: string, payload: CreateCompanyInput): Promise<Company> {
-    return companyRepository.createForTenant(tenantId, payload);
+  async createCompany(tenantId: string, payload: CreateCompanyInput, actorId?: string): Promise<Company> {
+    const company = await companyRepository.createForTenant(tenantId, payload);
+    await auditService.createAuditLog({
+      tenantId,
+      actorId,
+      action: 'create',
+      entityType: 'Company',
+      entityId: company.id,
+      metadata: { companyName: company.companyName },
+    });
+    return company;
   },
 
   async getCompanyByTenantId(tenantId: string): Promise<Company> {
@@ -20,8 +30,27 @@ export const companyService = {
     return company;
   },
 
-  async updateCompanyByTenantId(tenantId: string, payload: UpdateCompanyInput): Promise<Company> {
-    await this.getCompanyByTenantId(tenantId);
-    return companyRepository.updateByTenantId(tenantId, payload);
+  async getCompanyProfileByTenantId(
+    tenantId: string,
+  ): Promise<{ tenant: { id: string; name: string; slug: string }; company: Company }> {
+    const result = await companyRepository.findCompanyWithTenantInfo(tenantId);
+    if (!result) {
+      throw new AppError('Company not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+    return result;
+  },
+
+  async updateCompanyByTenantId(tenantId: string, payload: UpdateCompanyInput, actorId?: string): Promise<Company> {
+    const before = await this.getCompanyByTenantId(tenantId);
+    const company = await companyRepository.updateByTenantId(tenantId, payload);
+    await auditService.createAuditLog({
+      tenantId,
+      actorId,
+      action: 'update',
+      entityType: 'Company',
+      entityId: company.id,
+      metadata: { before, after: company },
+    });
+    return company;
   },
 };

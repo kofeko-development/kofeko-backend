@@ -9,22 +9,24 @@ import { CreateCompanyInput, UpdateCompanyInput } from '../../types/company/comp
 export const registerCompany = catchAsync(async (req: Request, res: Response) => {
   const companyInput = getRequestBody<CreateCompanyInput>(req);
   const tenantId = String(req.user?.tenantId);
-  const company = await companyService.createCompany(tenantId, companyInput);
+  const actorId = String(req.user?.userId);
+  const company = await companyService.createCompany(tenantId, companyInput, actorId);
 
   sendSuccess(res, StatusCodes.CREATED, 'Company registered successfully', company);
 });
 
 export const getCompany = catchAsync(async (req: Request, res: Response) => {
   const tenantId = String(req.user?.tenantId);
-  const company = await companyService.getCompanyByTenantId(tenantId);
+  const profile = await companyService.getCompanyProfileByTenantId(tenantId);
 
-  sendSuccess(res, StatusCodes.OK, 'Company fetched successfully', company);
+  sendSuccess(res, StatusCodes.OK, 'Company fetched successfully', profile);
 });
 
 export const updateCompany = catchAsync(async (req: Request, res: Response) => {
   const companyInput = getRequestBody<UpdateCompanyInput>(req);
   const tenantId = String(req.user?.tenantId);
-  const company = await companyService.updateCompanyByTenantId(tenantId, companyInput);
+  const actorId = String(req.user?.userId);
+  const company = await companyService.updateCompanyByTenantId(tenantId, companyInput, actorId);
 
   sendSuccess(res, StatusCodes.OK, 'Company updated successfully', company);
 });

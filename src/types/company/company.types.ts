@@ -1,18 +1,9 @@
 import { CompanyType } from '@prisma/client';
 
-export type CompanyAddress = {
-  country: string;
-  state: string;
-  city: string;
-  fullAddress: string;
-  zipCode: string;
-};
-
 export type CreateCompanyInput = {
   companyName: string;
-  companyAddress: CompanyAddress;
   industry: string;
-  companySize: string;
+  companySize: '1-10' | '11-50' | '51-200' | '201-500' | '501-1000' | '1000+';
   companyType: CompanyType;
   foundedYear: number;
   companyWebsite: string;

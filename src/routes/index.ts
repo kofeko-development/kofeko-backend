@@ -17,7 +17,7 @@ const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/system', systemRoutes);
-router.use('/companies', companyRoutes);
+router.use('/company', companyRoutes);
 router.use('/tenants', tenantRoutes);
 router.use('/users', userRoutes);
 router.use('/rbac', rbacRoutes);

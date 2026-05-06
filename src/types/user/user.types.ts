@@ -13,6 +13,7 @@ export type CreateUserInput = {
 
 export type InviteUserInput = {
   tenantId: string;
+  actorId?: string;
   firstName: string;
   lastName: string;
   email: string;

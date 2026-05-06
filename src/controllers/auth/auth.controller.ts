@@ -5,7 +5,16 @@ import { sendSuccess } from '../../common/utils/apiResponse';
 import { getRequestBody } from '../../common/utils/requestBody';
 import { optionalStringValue } from '../../common/utils/requestValue';
 import { authService } from '../../services/auth/auth.service';
-import { LoginCandidateInput, LoginInput, RefreshTokenInput, RegisterAdminInput, RegisterCandidateInput } from '../../types/auth/auth.payloads';
+import {
+  AcceptInviteInput,
+  ForgotPasswordInput,
+  LoginCandidateInput,
+  LoginInput,
+  RefreshTokenInput,
+  RegisterAdminInput,
+  RegisterCandidateInput,
+  ResetPasswordInput,
+} from '../../types/auth/auth.payloads';
 
 export const registerAdmin = catchAsync(async (req: Request, res: Response) => {
   const { ip, headers } = req;
@@ -61,4 +70,25 @@ export const logout = catchAsync(async (req: Request, res: Response) => {
   await authService.logout(logoutInput.refreshToken);
 
   sendSuccess(res, StatusCodes.OK, 'Logged out successfully', null);
+});
+
+export const acceptInvite = catchAsync(async (req: Request, res: Response) => {
+  const input = getRequestBody<AcceptInviteInput>(req);
+  const result = await authService.acceptInvite(input);
+
+  sendSuccess(res, StatusCodes.OK, 'Invite accepted successfully', result);
+});
+
+export const forgotPassword = catchAsync(async (req: Request, res: Response) => {
+  const input = getRequestBody<ForgotPasswordInput>(req);
+  await authService.forgotPassword(input);
+
+  sendSuccess(res, StatusCodes.OK, 'If an account exists, a reset email has been sent', null);
+});
+
+export const resetPassword = catchAsync(async (req: Request, res: Response) => {
+  const input = getRequestBody<ResetPasswordInput>(req);
+  await authService.resetPassword(input);
+
+  sendSuccess(res, StatusCodes.OK, 'Password reset successfully', null);
 });

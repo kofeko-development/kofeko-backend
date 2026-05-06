@@ -3,13 +3,17 @@ import { StatusCodes } from 'http-status-codes';
 import { env } from '../../config/env';
 import { comparePassword, hashPassword } from '../../common/auth/password';
 import { createTokenHash } from '../../common/auth/tokenHash';
+import { generateResetToken, getResetTokenExpiryDate } from '../../common/auth/inviteToken';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../common/auth/jwt';
 import { PERMISSIONS } from '../../common/constants/permissions';
+import { sendEmail } from '../../common/email/emailProvider';
+import { passwordResetEmailTemplate } from '../../common/email/templates/passwordResetEmail';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { authRepository } from '../../repositories/auth/auth.repository';
-import { LoginInput, RefreshTokenInput, RegisterAdminInput } from '../../types/auth/auth.payloads';
+import { AcceptInviteInput, ForgotPasswordInput, LoginInput, RefreshTokenInput, RegisterAdminInput, ResetPasswordInput } from '../../types/auth/auth.payloads';
 import { LoginCandidateInput, RegisterCandidateInput } from '../../types/auth/auth.payloads';
+import { auditService } from '../audit/audit.service';
 
 const sanitizeUser = <T extends { passwordHash: string }>(user: T): Omit<T, 'passwordHash'> => {
   const { passwordHash: _passwordHash, ...safeUser } = user;
@@ -261,5 +265,126 @@ export const authService = {
     }
 
     await authRepository.revokeSession(session.id);
+  },
+
+  async acceptInvite(payload: AcceptInviteInput) {
+    const tokenHash = createTokenHash(payload.token);
+    const inviteToken = await authRepository.findInviteTokenByToken(tokenHash);
+
+    if (!inviteToken) {
+      throw new AppError('Invalid invite token', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    if (inviteToken.usedAt) {
+      throw new AppError('Invite token has already been used', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    if (inviteToken.expiresAt.getTime() < Date.now()) {
+      throw new AppError('Invite token has expired', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const passwordHash = await hashPassword(payload.password);
+    const user = await authRepository.activateUserWithPassword(inviteToken.userId, inviteToken.tenantId, passwordHash);
+    await authRepository.markInviteTokenUsed(inviteToken.id);
+
+    await auditService.createAuditLog({
+      tenantId: inviteToken.tenantId,
+      actorId: user.id,
+      action: 'update',
+      entityType: 'user',
+      entityId: user.id,
+      metadata: {
+        inviteAccepted: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      tenantId: user.tenantId,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      status: user.status,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  },
+
+  async forgotPassword(payload: ForgotPasswordInput): Promise<void> {
+    const tenant = await authRepository.findTenantBySlug(payload.tenantSlug);
+
+    if (!tenant) {
+      return;
+    }
+
+    const user = await authRepository.findUserByTenantAndEmail(tenant.id, payload.email);
+
+    if (!user) {
+      return;
+    }
+
+    const rawToken = generateResetToken();
+    const tokenHash = createTokenHash(rawToken);
+
+    await authRepository.createPasswordResetToken({
+      tenantId: tenant.id,
+      userId: user.id,
+      token: tokenHash,
+      expiresAt: getResetTokenExpiryDate(),
+    });
+
+    const resetLink = `${env.APP_FRONTEND_URL}/reset-password?token=${rawToken}`;
+
+    await sendEmail({
+      to: user.email,
+      subject: 'Reset your Kofeko password',
+      html: passwordResetEmailTemplate({
+        resetLink,
+        userName: `${user.firstName} ${user.lastName}`.trim(),
+      }),
+    });
+
+    await auditService.createAuditLog({
+      tenantId: tenant.id,
+      actorId: user.id,
+      action: 'create',
+      entityType: 'password_reset',
+      entityId: user.id,
+      metadata: {
+        email: user.email,
+      },
+    });
+  },
+
+  async resetPassword(payload: ResetPasswordInput): Promise<void> {
+    const tokenHash = createTokenHash(payload.token);
+    const resetToken = await authRepository.findPasswordResetTokenByToken(tokenHash);
+
+    if (!resetToken) {
+      throw new AppError('Invalid reset token', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    if (resetToken.usedAt) {
+      throw new AppError('Reset token has already been used', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    if (resetToken.expiresAt.getTime() < Date.now()) {
+      throw new AppError('Reset token has expired', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const passwordHash = await hashPassword(payload.password);
+    await authRepository.updateUserPassword(resetToken.userId, passwordHash);
+    await authRepository.markPasswordResetTokenUsed(resetToken.id);
+
+    await auditService.createAuditLog({
+      tenantId: resetToken.tenantId,
+      actorId: resetToken.userId,
+      action: 'update',
+      entityType: 'user',
+      entityId: resetToken.userId,
+      metadata: {
+        passwordReset: true,
+      },
+    });
   },
 };

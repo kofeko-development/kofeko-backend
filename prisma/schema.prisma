@@ -88,6 +88,8 @@ model Tenant {
   companyId   String?      @unique
   company     Company?     @relation(fields: [companyId], references: [id])
   users       User[]
+  inviteTokens InviteToken[]
+  passwordResetTokens PasswordResetToken[]
   roles       Role[]
   permissions Permission[]
   userRoles   UserRole[]
@@ -115,10 +117,36 @@ model User {
   status       UserStatus @default(active)
   userRoles    UserRole[]
   sessions     Session[]
+  inviteTokens InviteToken[]
+  passwordResetTokens PasswordResetToken[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@unique([tenantId, email])
+}
+
+model InviteToken {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 }
 
 model Role {

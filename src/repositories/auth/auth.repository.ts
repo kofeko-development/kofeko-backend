@@ -1,4 +1,4 @@
-import { Permission, Tenant, User, UserStatus } from '@prisma/client';
+import { InviteToken, PasswordResetToken, Permission, Tenant, User, UserStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { DEFAULT_ROLE_PERMISSION_MATRIX } from '../../common/constants/rolePermissionMatrix';
 import { ROLE_NAMES } from '../../common/constants/roles';
@@ -281,6 +281,83 @@ export const authRepository = {
       where: { id },
       data: {
         revokedAt: new Date(),
+      },
+    });
+  },
+
+  async findTenantBySlug(slug: string): Promise<Tenant | null> {
+    return prisma.tenant.findUnique({
+      where: { slug },
+    });
+  },
+
+  async findUserByTenantAndEmail(tenantId: string, email: string): Promise<User | null> {
+    return prisma.user.findFirst({
+      where: { tenantId, email },
+    });
+  },
+
+  async createInviteToken(data: {
+    tenantId: string;
+    userId: string;
+    token: string;
+    expiresAt: Date;
+  }): Promise<InviteToken> {
+    return prisma.inviteToken.create({ data });
+  },
+
+  async findInviteTokenByToken(token: string): Promise<(InviteToken & { user: User; tenant: Tenant }) | null> {
+    return prisma.inviteToken.findUnique({
+      where: { token },
+      include: { user: true, tenant: true },
+    });
+  },
+
+  async markInviteTokenUsed(id: string): Promise<InviteToken> {
+    return prisma.inviteToken.update({
+      where: { id },
+      data: { usedAt: new Date() },
+    });
+  },
+
+  async createPasswordResetToken(data: {
+    tenantId: string;
+    userId: string;
+    token: string;
+    expiresAt: Date;
+  }): Promise<PasswordResetToken> {
+    return prisma.passwordResetToken.create({ data });
+  },
+
+  async findPasswordResetTokenByToken(token: string): Promise<(PasswordResetToken & { user: User; tenant: Tenant }) | null> {
+    return prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true, tenant: true },
+    });
+  },
+
+  async markPasswordResetTokenUsed(id: string): Promise<PasswordResetToken> {
+    return prisma.passwordResetToken.update({
+      where: { id },
+      data: { usedAt: new Date() },
+    });
+  },
+
+  async activateUserWithPassword(userId: string, tenantId: string, passwordHash: string): Promise<User> {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        status: UserStatus.active,
+      },
+    });
+  },
+
+  async updateUserPassword(userId: string, passwordHash: string): Promise<User> {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
       },
     });
   },

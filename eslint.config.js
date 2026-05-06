@@ -5,7 +5,7 @@ const eslintConfigPrettier = require("eslint-config-prettier");
 
 module.exports = [
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: ["dist/**", "node_modules/**", "scripts/**"],
   },
   js.configs.recommended,
   {
@@ -22,7 +22,7 @@ module.exports = [
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        project: "./tsconfig.json",
+        project: "./tsconfig.eslint.json",
       },
       ecmaVersion: 2022,
       sourceType: "module",
@@ -38,7 +38,7 @@ module.exports = [
     rules: {
       "no-undef": "off",
       "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-misused-promises": ["error", { "checksVoidReturn": false }],
     },
