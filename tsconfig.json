@@ -12,6 +12,7 @@
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
