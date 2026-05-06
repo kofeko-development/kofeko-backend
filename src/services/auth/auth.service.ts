@@ -11,7 +11,15 @@ import { passwordResetEmailTemplate } from '../../common/email/templates/passwor
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { authRepository } from '../../repositories/auth/auth.repository';
-import { AcceptInviteInput, ForgotPasswordInput, LoginInput, RefreshTokenInput, RegisterAdminInput, ResetPasswordInput } from '../../types/auth/auth.payloads';
+import {
+  AcceptInviteInput,
+  ForgotPasswordInput,
+  LoginInput,
+  RefreshTokenInput,
+  RegisterAdminInput,
+  RegisterCompanyRequestInput,
+  ResetPasswordInput,
+} from '../../types/auth/auth.payloads';
 import { LoginCandidateInput, RegisterCandidateInput } from '../../types/auth/auth.payloads';
 import { auditService } from '../audit/audit.service';
 
@@ -56,6 +64,16 @@ const getRefreshExpiryDate = (): Date => {
 };
 
 export const authService = {
+  async registerCompanyRequest(payload: RegisterCompanyRequestInput) {
+    const request = await authRepository.createCompanyRegistrationRequest(payload);
+
+    return {
+      requestId: request.id,
+      status: request.status,
+      message: 'Company registration submitted and pending super admin approval',
+    };
+  },
+
   async registerAdmin(payload: RegisterAdminInput, userAgent?: string, ipAddress?: string) {
     const passwordHash = await hashPassword(payload.password);
 
@@ -110,6 +128,20 @@ export const authService = {
 
     if (!isPasswordValid) {
       throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    if (user.otpRequired) {
+      if (!payload.otp) {
+        throw new AppError('OTP is required for first login', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      }
+      if (!user.loginOtpHash || !user.loginOtpExpiresAt || user.loginOtpExpiresAt < new Date()) {
+        throw new AppError('OTP expired. Please contact super admin.', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      }
+      const isOtpValid = await comparePassword(payload.otp, user.loginOtpHash);
+      if (!isOtpValid) {
+        throw new AppError('Invalid OTP', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      }
+      await authRepository.consumeLoginOtp(user.id, user.tenantId);
     }
 
     const tokenPayload = {

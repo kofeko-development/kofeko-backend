@@ -23,6 +23,31 @@ type BootstrapCandidateUserInput = {
   permissionKeys: string[];
 };
 
+type CompanyRegistrationRequestInput = {
+  companyName: string;
+  companyAddress: {
+    country: string;
+    state: string;
+    city: string;
+    zipCode: string;
+    fullAddress: string;
+  };
+  industry: string;
+  companySize: string;
+  companyType: 'startup' | 'enterprise' | 'agency' | 'non_profit';
+  foundedYear: number;
+  companyWebsite: string;
+  officialCompanyAddress: string;
+  phoneNumber?: string;
+  companyLogo: string;
+  shortDescription: string;
+  linkedinUrl?: string;
+  twitterUrl?: string;
+  termsAccepted: true;
+  contactName: string;
+  contactEmail: string;
+};
+
 export const authRepository = {
   async bootstrapTenantAdmin(input: BootstrapTenantAdminInput): Promise<{ tenant: Tenant; user: User; permissions: Permission[] }> {
     return prisma.$transaction(async (tx) => {
@@ -202,6 +227,29 @@ export const authRepository = {
     });
   },
 
+  async createCompanyRegistrationRequest(input: CompanyRegistrationRequestInput) {
+    return prisma.companyRegistrationRequest.create({
+      data: {
+        companyName: input.companyName,
+        companyAddress: input.companyAddress,
+        industry: input.industry,
+        companySize: input.companySize,
+        companyType: input.companyType,
+        foundedYear: input.foundedYear,
+        companyWebsite: input.companyWebsite,
+        officialCompanyAddress: input.officialCompanyAddress,
+        phoneNumber: input.phoneNumber,
+        companyLogo: input.companyLogo,
+        shortDescription: input.shortDescription,
+        linkedinUrl: input.linkedinUrl,
+        twitterUrl: input.twitterUrl,
+        termsAccepted: input.termsAccepted,
+        contactName: input.contactName,
+        contactEmail: input.contactEmail,
+      },
+    });
+  },
+
   async findUserByTenantSlugAndEmail(tenantSlug: string, email: string): Promise<(User & { tenant: Tenant }) | null> {
     return prisma.user.findFirst({
       where: {
@@ -358,6 +406,17 @@ export const authRepository = {
       where: { id: userId },
       data: {
         passwordHash,
+      },
+    });
+  },
+
+  async consumeLoginOtp(userId: string, tenantId: string) {
+    return prisma.user.updateMany({
+      where: { id: userId, tenantId },
+      data: {
+        otpRequired: false,
+        loginOtpHash: null,
+        loginOtpExpiresAt: null,
       },
     });
   },

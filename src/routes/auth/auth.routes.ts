@@ -8,6 +8,7 @@ import {
   me,
   refreshToken,
   registerAdmin,
+  registerCompanyRequest,
   registerCandidate,
   resetPassword,
 } from '../../controllers/auth/auth.controller';
@@ -21,6 +22,7 @@ import {
   logoutSchema,
   refreshSchema,
   registerAdminSchema,
+  registerCompanyRequestSchema,
   registerCandidateSchema,
   resetPasswordSchema,
 } from '../../validations/auth/auth.validation';
@@ -28,6 +30,7 @@ import {
 const authRouter = Router();
 
 authRouter.post('/register-admin', validateRequest(registerAdminSchema), registerAdmin);
+authRouter.post('/register-company-request', validateRequest(registerCompanyRequestSchema), registerCompanyRequest);
 authRouter.post('/login', validateRequest(loginSchema), login);
 authRouter.post('/register-candidate', validateRequest(registerCandidateSchema), registerCandidate);
 authRouter.post('/login-candidate', validateRequest(loginCandidateSchema), loginCandidate);

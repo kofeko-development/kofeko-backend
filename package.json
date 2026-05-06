@@ -34,7 +34,7 @@
     "http-status-codes": "^2.3.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
-    "nodemailer": "^7.0.6",
+    "nodemailer": "^8.0.7",
     "prisma": "^6.16.2",
     "prisma-client": "^0.0.0",
     "zod": "^4.3.6"

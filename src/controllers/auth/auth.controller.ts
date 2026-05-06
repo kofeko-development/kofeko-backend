@@ -13,6 +13,7 @@ import {
   RefreshTokenInput,
   RegisterAdminInput,
   RegisterCandidateInput,
+  RegisterCompanyRequestInput,
   ResetPasswordInput,
 } from '../../types/auth/auth.payloads';
 
@@ -23,6 +24,12 @@ export const registerAdmin = catchAsync(async (req: Request, res: Response) => {
   const result = await authService.registerAdmin(registerAdminInput, userAgent, ip);
 
   sendSuccess(res, StatusCodes.CREATED, 'Tenant admin registered successfully', result);
+});
+
+export const registerCompanyRequest = catchAsync(async (req: Request, res: Response) => {
+  const payload = getRequestBody<RegisterCompanyRequestInput>(req);
+  const result = await authService.registerCompanyRequest(payload);
+  sendSuccess(res, StatusCodes.CREATED, 'Company registration submitted successfully', result);
 });
 
 export const login = catchAsync(async (req: Request, res: Response) => {

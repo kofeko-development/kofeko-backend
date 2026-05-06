@@ -11,14 +11,22 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16, 'JWT_REFRESH_SECRET must be at least 16 chars'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
-
+  SUPERADMIN_USERNAME: z.string().default('superadmin@123'),
+  SUPERADMIN_PASSWORD: z.string().default('kofeko_123'),
   APP_FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  FRONTEND_URL: z.string().url().optional(),
 
-  SMTP_HOST: z.string().min(1, 'SMTP_HOST is required'),
+  SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
-  SMTP_USER: z.string().min(1, 'SMTP_USER is required'),
-  SMTP_PASS: z.string().min(1, 'SMTP_PASS is required'),
-  SMTP_FROM: z.string().min(1, 'SMTP_FROM is required'),
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  SMTP_FROM_NAME: z.string().default('Kofeko'),
+  SMTP_FROM_EMAIL: z.string().default('no-reply@kofeko.com'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -27,4 +35,8 @@ if (!parsed.success) {
   throw new Error(`Invalid environment variables: ${parsed.error.message}`);
 }
 
-export const env = parsed.data;
+export const env = {
+  ...parsed.data,
+  FRONTEND_URL: parsed.data.FRONTEND_URL ?? parsed.data.APP_FRONTEND_URL,
+  SMTP_FROM: parsed.data.SMTP_FROM ?? `${parsed.data.SMTP_FROM_NAME} <${parsed.data.SMTP_FROM_EMAIL}>`,
+};

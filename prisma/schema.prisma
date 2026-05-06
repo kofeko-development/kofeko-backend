@@ -60,6 +60,12 @@ enum AuditActionType {
   evaluate
 }
 
+enum CompanyRegistrationStatus {
+  pending
+  approved
+  rejected
+}
+
 model Company {
   id                     String      @id @default(uuid())
   companyName            String
@@ -114,6 +120,9 @@ model User {
   lastName     String
   email        String
   passwordHash String
+  otpRequired  Boolean    @default(false)
+  loginOtpHash String?
+  loginOtpExpiresAt DateTime?
   status       UserStatus @default(active)
   userRoles    UserRole[]
   sessions     Session[]
@@ -335,4 +344,30 @@ model AuditLog {
   entityId    String
   metadata    Json?
   createdAt   DateTime        @default(now())
+}
+
+model CompanyRegistrationRequest {
+  id                     String                    @id @default(uuid())
+  companyName            String
+  companyAddress         Json
+  industry               String
+  companySize            String
+  companyType            CompanyType
+  foundedYear            Int
+  companyWebsite         String
+  officialCompanyAddress String
+  phoneNumber            String?
+  companyLogo            String
+  shortDescription       String
+  linkedinUrl            String?
+  twitterUrl             String?
+  termsAccepted          Boolean
+  contactName            String
+  contactEmail           String
+  status                 CompanyRegistrationStatus @default(pending)
+  reviewedBy             String?
+  reviewNotes            String?
+  approvedTenantId       String?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
 }
