@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { catchAsync } from '../../common/utils/catchAsync';
-import { sendSuccess } from '../../common/utils/apiResponse';
+import { sendPaginated, sendSuccess } from '../../common/utils/apiResponse';
 import { getRequestBody } from '../../common/utils/requestBody';
 import { parsePagination } from '../../common/utils/pagination';
 import { requireStringValue } from '../../common/utils/requestValue';
 import { communicationService } from '../../services/communication/communication.service';
-import { CreateMessageInput, CreateNotificationInput } from '../../types/communication/communication.types';
+import { CreateMessageInput, CreateNotificationInput, ManualSendMessageInput } from '../../types/communication/communication.types';
 
 export const createNotification = catchAsync(async (req: Request, res: Response) => {
   const notificationInput = getRequestBody<CreateNotificationInput>(req);
@@ -21,9 +21,11 @@ export const listNotifications = catchAsync(async (req: Request, res: Response) 
   const pagination = parsePagination(page, limit);
   const tenantId = String(req.user?.tenantId);
   const result = await communicationService.listNotificationsByTenant(tenantId, pagination);
-  sendSuccess(res, StatusCodes.OK, 'Notifications fetched successfully', result.items, {
+  sendPaginated(res, StatusCodes.OK, {
+    items: result.items,
     total: result.total,
-    ...pagination,
+    page: pagination.page,
+    limit: pagination.limit,
   });
 });
 
@@ -33,9 +35,11 @@ export const listUnreadNotifications = catchAsync(async (req: Request, res: Resp
   const pagination = parsePagination(page, limit);
   const tenantId = String(req.user?.tenantId);
   const result = await communicationService.listUnreadNotificationsByTenant(tenantId, pagination);
-  sendSuccess(res, StatusCodes.OK, 'Unread notifications fetched successfully', result.items, {
+  sendPaginated(res, StatusCodes.OK, {
+    items: result.items,
     total: result.total,
-    ...pagination,
+    page: pagination.page,
+    limit: pagination.limit,
   });
 });
 
@@ -60,8 +64,18 @@ export const listMessages = catchAsync(async (req: Request, res: Response) => {
   const pagination = parsePagination(page, limit);
   const tenantId = String(req.user?.tenantId);
   const result = await communicationService.listMessagesByTenant(tenantId, pagination);
-  sendSuccess(res, StatusCodes.OK, 'Messages fetched successfully', result.items, {
+  sendPaginated(res, StatusCodes.OK, {
+    items: result.items,
     total: result.total,
-    ...pagination,
+    page: pagination.page,
+    limit: pagination.limit,
   });
+});
+
+export const sendManualMessage = catchAsync(async (req: Request, res: Response) => {
+  const payload = getRequestBody<ManualSendMessageInput>(req);
+  const tenantId = String(req.user?.tenantId);
+  const actorId = String(req.user?.userId);
+  const result = await communicationService.sendManualMessage(tenantId, payload, actorId);
+  sendSuccess(res, StatusCodes.CREATED, 'Message sent successfully', result);
 });

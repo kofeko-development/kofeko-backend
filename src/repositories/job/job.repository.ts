@@ -1,5 +1,8 @@
-import { Job } from '@prisma/client';
+import { Job, JobStatus, Prisma } from '@prisma/client';
+import { StatusCodes } from 'http-status-codes';
 import { prisma } from '../../config/prisma';
+import { AppError } from '../../common/errors/AppError';
+import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { CreateJobInput, UpdateJobInput } from '../../types/job/job.types';
 
 export const jobRepository = {
@@ -11,15 +14,24 @@ export const jobRepository = {
     return prisma.job.findFirst({ where: { id, tenantId } });
   },
 
-  async listByTenant(tenantId: string, page: number, limit: number): Promise<{ items: Job[]; total: number }> {
+  async listByTenant(
+    tenantId: string,
+    input: { page: number; limit: number; status?: JobStatus; department?: string },
+  ): Promise<{ items: Job[]; total: number }> {
+    const { page, limit, status, department } = input;
+    const where: Prisma.JobWhereInput = {
+      tenantId,
+      ...(status ? { status } : {}),
+      ...(department ? { department } : {}),
+    };
     const [items, total] = await Promise.all([
       prisma.job.findMany({
-        where: { tenantId },
+        where,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.job.count({ where: { tenantId } }),
+      prisma.job.count({ where }),
     ]);
 
     return { items, total };
@@ -28,7 +40,7 @@ export const jobRepository = {
   async updateByIdAndTenant(id: string, tenantId: string, data: UpdateJobInput): Promise<Job> {
     const current = await prisma.job.findFirst({ where: { id, tenantId } });
     if (!current) {
-      throw new Error('Job not found in tenant');
+      throw new AppError('Job not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
     return prisma.job.update({
       where: { id: current.id },

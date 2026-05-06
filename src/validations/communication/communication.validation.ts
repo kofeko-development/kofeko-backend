@@ -29,3 +29,11 @@ export const tenantQuerySchema = z.object({
 export const notificationIdParamSchema = z.object({
   params: z.object({ id: z.uuid() }),
 });
+
+export const manualSendSchema = z.object({
+  body: z.object({
+    to: z.email(),
+    subject: z.string().min(2).max(200),
+    html: z.string().min(1).max(50_000),
+  }),
+});

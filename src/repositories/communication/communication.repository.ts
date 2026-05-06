@@ -1,5 +1,8 @@
 import { Message, Notification } from '@prisma/client';
+import { StatusCodes } from 'http-status-codes';
 import { prisma } from '../../config/prisma';
+import { AppError } from '../../common/errors/AppError';
+import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { CreateMessageInput, CreateNotificationInput } from '../../types/communication/communication.types';
 
 export const communicationRepository = {
@@ -59,7 +62,9 @@ export const communicationRepository = {
 
   async markNotificationAsRead(id: string, tenantId: string): Promise<Notification> {
     const current = await prisma.notification.findFirst({ where: { id, tenantId } });
-    if (!current) throw new Error('Notification not found in tenant');
+    if (!current) {
+      throw new AppError('Notification not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
     return prisma.notification.update({
       where: { id: current.id },
       data: {

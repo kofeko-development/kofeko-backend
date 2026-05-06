@@ -28,8 +28,9 @@ export type AnalyticsDashboardSummary = {
   candidates: {
     total: number;
     new: number;
-    screened: number;
-    shortlisted: number;
+    screening: number;
+    interview: number;
+    offer: number;
     rejected: number;
     hired: number;
   };

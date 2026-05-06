@@ -13,6 +13,30 @@ export const analyticsService = {
     return analyticsRepository.listMetricsByTenant(tenantId, pagination);
   },
 
+  async getSummary(tenantId: string) {
+    return analyticsRepository.getTenantSummary(tenantId);
+  },
+
+  async getPipelineFunnel(tenantId: string, jobId?: string) {
+    return analyticsRepository.getPipelineFunnel(tenantId, jobId);
+  },
+
+  async getTimeToDecision(tenantId: string, jobId?: string) {
+    return analyticsRepository.getTimeToDecision(tenantId, jobId);
+  },
+
+  async getScoreDistribution(tenantId: string, jobId?: string) {
+    return analyticsRepository.getEvaluationScoreDistribution(tenantId, jobId);
+  },
+
+  async getRecentActivity(tenantId: string, limit: number) {
+    return analyticsRepository.getRecentActivity(tenantId, limit);
+  },
+
+  async getHiringVelocity(tenantId: string, jobId?: string) {
+    return analyticsRepository.getHiringVelocity(tenantId, jobId);
+  },
+
   async getDashboardSummary(tenantId: string): Promise<AnalyticsDashboardSummary> {
     return analyticsRepository.getDashboardSummary(tenantId);
   },

@@ -4,13 +4,15 @@ import { StatusCodes } from 'http-status-codes';
 import { ZodError } from 'zod';
 import { AppError } from '../errors/AppError';
 import { ERROR_CODES } from '../errors/errorCodes';
-import { env } from '../../config/env';
 
 export const errorHandler = (error: unknown, _req: Request, res: Response, _next: NextFunction): void => {
   let statusCode = StatusCodes.INTERNAL_SERVER_ERROR;
   let message = 'Something went wrong';
   let errorCode: string = ERROR_CODES.INTERNAL_SERVER_ERROR;
   let details: unknown;
+
+  // Always log full error internally
+  console.error(error);
 
   if (error instanceof AppError) {
     statusCode = error.statusCode;
@@ -35,7 +37,7 @@ export const errorHandler = (error: unknown, _req: Request, res: Response, _next
     success: false,
     message,
     errorCode,
+    statusCode,
     ...(details ? { details } : {}),
-    ...(env.NODE_ENV !== 'production' && error instanceof Error ? { stack: error.stack } : {}),
   });
 };

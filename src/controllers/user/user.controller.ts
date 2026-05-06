@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import { sendSuccess } from '../../common/utils/apiResponse';
+import { sendPaginated, sendSuccess } from '../../common/utils/apiResponse';
 import { catchAsync } from '../../common/utils/catchAsync';
+import { parsePagination } from '../../common/utils/pagination';
 import { getRequestBody } from '../../common/utils/requestBody';
 import { requireStringValue } from '../../common/utils/requestValue';
 import { userService } from '../../services/user/user.service';
@@ -40,9 +41,15 @@ export const getUser = catchAsync(async (req: Request, res: Response) => {
 
 export const listUsers = catchAsync(async (req: Request, res: Response) => {
   const tenantId = String(req.user?.tenantId);
-  const result = await userService.listUsersByTenant(tenantId);
+  const pagination = parsePagination(req.query.page, req.query.limit);
+  const result = await userService.listUsersByTenant(tenantId, pagination);
 
-  sendSuccess(res, StatusCodes.OK, 'Users fetched successfully', result.map(sanitizeUser));
+  sendPaginated(res, StatusCodes.OK, {
+    items: result.items.map(sanitizeUser),
+    total: result.total,
+    page: pagination.page,
+    limit: pagination.limit,
+  });
 });
 
 export const updateUser = catchAsync(async (req: Request, res: Response) => {

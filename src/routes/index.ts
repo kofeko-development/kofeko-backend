@@ -13,6 +13,7 @@ import systemRoutes from './system/system.routes';
 import tenantRoutes from './tenant/tenant.routes';
 import userRoutes from './user/user.routes';
 import superAdminRoutes from './superadmin/superadmin.routes';
+import portalRoutes from './portal/portal.routes';
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use('/communication', communicationRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/audit', auditRoutes);
 router.use('/superadmin', superAdminRoutes);
+router.use('/portal', portalRoutes);
 
 export default router;

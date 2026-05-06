@@ -10,9 +10,9 @@ export const registerCompany = catchAsync(async (req: Request, res: Response) =>
   const companyInput = getRequestBody<CreateCompanyInput>(req);
   const tenantId = String(req.user?.tenantId);
   const actorId = String(req.user?.userId);
-  const company = await companyService.createCompany(tenantId, companyInput, actorId);
+  const profile = await companyService.createCompany(tenantId, companyInput, actorId);
 
-  sendSuccess(res, StatusCodes.CREATED, 'Company registered successfully', company);
+  sendSuccess(res, StatusCodes.CREATED, 'Company registered successfully', profile);
 });
 
 export const getCompany = catchAsync(async (req: Request, res: Response) => {
@@ -26,7 +26,7 @@ export const updateCompany = catchAsync(async (req: Request, res: Response) => {
   const companyInput = getRequestBody<UpdateCompanyInput>(req);
   const tenantId = String(req.user?.tenantId);
   const actorId = String(req.user?.userId);
-  const company = await companyService.updateCompanyByTenantId(tenantId, companyInput, actorId);
+  const profile = await companyService.updateCompanyByTenantId(tenantId, companyInput, actorId);
 
-  sendSuccess(res, StatusCodes.OK, 'Company updated successfully', company);
+  sendSuccess(res, StatusCodes.OK, 'Company updated successfully', profile);
 });

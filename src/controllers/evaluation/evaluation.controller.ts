@@ -1,14 +1,13 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { catchAsync } from '../../common/utils/catchAsync';
-import { sendSuccess } from '../../common/utils/apiResponse';
+import { sendPaginated, sendSuccess } from '../../common/utils/apiResponse';
 import { getRequestBody } from '../../common/utils/requestBody';
 import { parsePagination } from '../../common/utils/pagination';
 import { requireStringValue } from '../../common/utils/requestValue';
 import { evaluationService } from '../../services/evaluation/evaluation.service';
 import {
   CreateEvaluationInput,
-  EvaluationInsightPreviewInput,
   UpdateEvaluationInput,
 } from '../../types/evaluation/evaluation.types';
 
@@ -34,16 +33,12 @@ export const listEvaluations = catchAsync(async (req: Request, res: Response) =>
   const pagination = parsePagination(page, limit);
   const tenantId = String(req.user?.tenantId);
   const result = await evaluationService.listEvaluationsByTenant(tenantId, pagination);
-  sendSuccess(res, StatusCodes.OK, 'Evaluations fetched successfully', result.items, {
+  sendPaginated(res, StatusCodes.OK, {
+    items: result.items,
     total: result.total,
-    ...pagination,
+    page: pagination.page,
+    limit: pagination.limit,
   });
-});
-
-export const previewEvaluationInsight = catchAsync(async (req: Request, res: Response) => {
-  const insightInput = getRequestBody<EvaluationInsightPreviewInput>(req);
-  const result = evaluationService.previewEvaluationInsight(insightInput);
-  sendSuccess(res, StatusCodes.OK, 'Evaluation insight preview generated successfully', result);
 });
 
 export const updateEvaluation = catchAsync(async (req: Request, res: Response) => {
@@ -54,4 +49,12 @@ export const updateEvaluation = catchAsync(async (req: Request, res: Response) =
   const actorId = String(req.user?.userId);
   const result = await evaluationService.updateEvaluation(evaluationId, tenantId, evaluationInput, actorId);
   sendSuccess(res, StatusCodes.OK, 'Evaluation updated successfully', result);
+});
+
+export const aiEvaluate = catchAsync(async (req: Request, res: Response) => {
+  const input = getRequestBody<{ jobId: string; candidateId: string; pipelineId?: string }>(req);
+  const tenantId = String(req.user?.tenantId);
+  const actorId = String(req.user?.userId);
+  const result = await evaluationService.aiEvaluate(input, tenantId, actorId);
+  sendSuccess(res, StatusCodes.CREATED, 'AI evaluation created successfully', result);
 });

@@ -1,23 +1,22 @@
 import { Evaluation } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
-import { buildEvaluationWhyCard } from '../../common/ai/evaluationWhyCard';
+import { Buffer } from 'node:buffer';
+import { extractResumeText } from '../../common/ai/extractResumeText';
+import { analyzeResumeAgainstJD } from '../../common/ai/analyzeResume';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { PaginationInput } from '../../common/utils/pagination';
 import { auditService } from '../audit/audit.service';
 import { evaluationRepository } from '../../repositories/evaluation/evaluation.repository';
-import { CreateEvaluationInput, EvaluationInsightPreviewInput, UpdateEvaluationInput } from '../../types/evaluation/evaluation.types';
+import { jobRepository } from '../../repositories/job/job.repository';
+import { candidateRepository } from '../../repositories/candidate/candidate.repository';
+import { pipelineRepository } from '../../repositories/pipeline/pipeline.repository';
+import type { SkillWeight } from '../../types/ai/ai.types';
+import { CreateEvaluationInput, UpdateEvaluationInput } from '../../types/evaluation/evaluation.types';
 
 export const evaluationService = {
   async createEvaluation(payload: CreateEvaluationInput, actorId?: string): Promise<Evaluation> {
-    const evaluationInput = {
-      ...payload,
-      whyCard: payload.whyCard?.trim() || buildEvaluationWhyCard({
-        score: payload.score,
-        summary: payload.summary,
-      }),
-    };
-    const evaluation = await evaluationRepository.create(evaluationInput);
+    const evaluation = await evaluationRepository.create(payload);
     await auditService.createAuditLog({
       tenantId: payload.tenantId,
       action: 'evaluate',
@@ -48,14 +47,9 @@ export const evaluationService = {
 
   async updateEvaluation(id: string, tenantId: string, payload: UpdateEvaluationInput, actorId?: string): Promise<Evaluation> {
     const currentEvaluation = await this.getEvaluationById(id, tenantId);
-    const nextScore = payload.score ?? currentEvaluation.score;
-    const nextSummary = payload.summary ?? currentEvaluation.summary ?? undefined;
     const updatedEvaluation = await evaluationRepository.updateByIdAndTenant(id, tenantId, {
       ...payload,
-      whyCard: payload.whyCard?.trim() || buildEvaluationWhyCard({
-        score: nextScore,
-        summary: nextSummary,
-      }),
+      ...(payload.whyCard != null ? { whyCard: payload.whyCard.trim() } : {}),
     });
     await auditService.createAuditLog({
       tenantId: currentEvaluation.tenantId,
@@ -68,9 +62,168 @@ export const evaluationService = {
     return updatedEvaluation;
   },
 
-  previewEvaluationInsight(payload: EvaluationInsightPreviewInput): { whyCard: string } {
-    return {
-      whyCard: buildEvaluationWhyCard(payload),
-    };
+  async aiEvaluate(
+    payload: { jobId: string; candidateId: string; pipelineId?: string },
+    tenantId: string,
+    actorId?: string,
+  ): Promise<Evaluation> {
+    const job = await jobRepository.findByIdAndTenant(payload.jobId, tenantId);
+    if (!job) {
+      throw new AppError('Job not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    const candidate = await candidateRepository.findByIdAndTenant(payload.candidateId, tenantId);
+    if (!candidate) {
+      throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+    if (!candidate.resumeUrl) {
+      throw new AppError('Candidate has no resume uploaded', StatusCodes.BAD_REQUEST, ERROR_CODES.NO_RESUME);
+    }
+
+    let buffer: Buffer;
+    try {
+      const response = await fetch(candidate.resumeUrl);
+      if (!response.ok) {
+        throw new AppError(
+          `Resume download failed with status ${response.status}`,
+          StatusCodes.BAD_GATEWAY,
+          ERROR_CODES.AI_EVALUATION_FAILED,
+        );
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Resume download failed';
+      throw new AppError(`AI evaluation failed: ${message}`, StatusCodes.BAD_GATEWAY, ERROR_CODES.AI_EVALUATION_FAILED);
+    }
+
+    let resumeText = '';
+    try {
+      resumeText = await extractResumeText(
+        buffer,
+        candidate.resumeMimeType ?? 'application/pdf',
+        candidate.resumeUrl.split('/').pop() ?? 'resume',
+      );
+    } catch {
+      // If parsing fails, proceed with empty resume text.
+    }
+
+    let result: Awaited<ReturnType<typeof analyzeResumeAgainstJD>>;
+    try {
+      result = await analyzeResumeAgainstJD(resumeText, {
+        title: job.title,
+        description: job.description ?? '',
+        skillWeights: (job.skillWeights as SkillWeight[]) ?? [],
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      throw new AppError(`AI evaluation failed: ${message}`, StatusCodes.BAD_GATEWAY, ERROR_CODES.INTERNAL_SERVER_ERROR);
+    }
+
+    const evaluation = await evaluationRepository.create({
+      tenantId,
+      jobId: payload.jobId,
+      candidateId: payload.candidateId,
+      pipelineId: payload.pipelineId ?? undefined,
+      score: result.scores.overall,
+      summary: result.parsedResume.summary,
+      whyCard: result.rankingSummary,
+      rankingSummary: result.rankingSummary,
+      roleFitNotes: result.scores.roleFitNotes,
+      sectionScores: result.scores.sections,
+      skillMatches: result.scores.skillMatches,
+      parsedResumeData: result.parsedResume,
+      aiGenerated: true,
+      evaluatedBy: actorId,
+    });
+
+    await auditService.createAuditLog({
+      tenantId,
+      action: 'ai_evaluate',
+      actorId,
+      entityType: 'evaluation',
+      entityId: evaluation.id,
+      metadata: {
+        score: result.scores.overall,
+        aiGenerated: true,
+        candidateId: payload.candidateId,
+        jobId: payload.jobId,
+      },
+    });
+
+    return evaluation;
+  },
+
+  async batchAiEvaluate(
+    jobId: string,
+    tenantId: string,
+    actorId?: string,
+  ): Promise<{ evaluated: number; failed: number; errors: Array<{ candidateId: string; reason: string }> }> {
+    const pipelines = await pipelineRepository.listAllByJobIdAndTenant(tenantId, jobId);
+    let evaluated = 0;
+    let failed = 0;
+    const errors: Array<{ candidateId: string; reason: string }> = [];
+
+    for (const pipeline of pipelines) {
+      const existingAi =
+        (await evaluationRepository.findAiGeneratedByPipeline(tenantId, pipeline.id)) ??
+        (await evaluationRepository.findAiGeneratedByJobCandidate(tenantId, pipeline.jobId, pipeline.candidateId));
+      if (existingAi) {
+        continue;
+      }
+
+      try {
+        await this.aiEvaluate(
+          { jobId: pipeline.jobId, candidateId: pipeline.candidateId, pipelineId: pipeline.id },
+          tenantId,
+          actorId,
+        );
+        evaluated += 1;
+      } catch (err) {
+        failed += 1;
+        errors.push({
+          candidateId: pipeline.candidateId,
+          reason: err instanceof Error ? err.message : 'AI evaluation failed',
+        });
+      }
+    }
+
+    return { evaluated, failed, errors };
+  },
+
+  async getRankings(
+    jobId: string,
+    tenantId: string,
+  ): Promise<
+    Array<{
+      rank: number;
+      candidate: { id: string; firstName: string; lastName: string; email: string };
+      pipeline: { id: string; stage: string } | null;
+      evaluation: {
+        id: string;
+        score: number;
+        whyCard: string | null;
+        roleFitNotes: string | null;
+        skillMatches: unknown;
+        sectionScores: unknown;
+        aiGenerated: boolean;
+      };
+    }>
+  > {
+    const evaluations = await evaluationRepository.listAiGeneratedByJobWithRelations(tenantId, jobId);
+    return evaluations.map((e, idx) => ({
+      rank: idx + 1,
+      candidate: e.candidate,
+      pipeline: e.pipeline ? { id: e.pipeline.id, stage: e.pipeline.stage } : null,
+      evaluation: {
+        id: e.id,
+        score: e.score,
+        whyCard: e.whyCard,
+        roleFitNotes: e.roleFitNotes,
+        skillMatches: e.skillMatches,
+        sectionScores: e.sectionScores,
+        aiGenerated: e.aiGenerated,
+      },
+    }));
   },
 };

@@ -5,15 +5,18 @@ dotenv.config();
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(5000),
+  PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  JWT_ACCESS_SECRET: z.string().min(16, 'JWT_ACCESS_SECRET must be at least 16 chars'),
-  JWT_REFRESH_SECRET: z.string().min(16, 'JWT_REFRESH_SECRET must be at least 16 chars'),
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 chars'),
+  // Backwards-compatible overrides (optional)
+  JWT_ACCESS_SECRET: z.string().min(16).optional(),
+  JWT_REFRESH_SECRET: z.string().min(16).optional(),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   SUPERADMIN_USERNAME: z.string().default('superadmin@123'),
   SUPERADMIN_PASSWORD: z.string().default('kofeko_123'),
-  APP_FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  SUPER_ADMIN_SETUP_KEY: z.string().default('dev-superadmin-setup-key'),
+  APP_FRONTEND_URL: z.string().url().default('http://localhost:3001'),
   FRONTEND_URL: z.string().url().optional(),
 
   SMTP_HOST: z.string().optional(),
@@ -27,16 +30,77 @@ const envSchema = z.object({
   SMTP_FROM: z.string().optional(),
   SMTP_FROM_NAME: z.string().default('Kofeko'),
   SMTP_FROM_EMAIL: z.string().default('no-reply@kofeko.com'),
+
+  STORAGE_PROVIDER: z.enum(['local', 'firebase']).default('local'),
+  FIREBASE_PROJECT_ID: z.string().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().optional(),
+  FIREBASE_STORAGE_BUCKET: z.string().optional(),
+
+  REPLICATE_API_TOKEN: z.string().optional(),
+  REPLICATE_MODEL: z.string().optional(),
+  REPLICATE_REASONING_EFFORT: z.enum(['none', 'low', 'medium', 'high', 'xhigh']).optional(),
+  REPLICATE_VERBOSITY: z.enum(['low', 'medium', 'high']).optional(),
+  REPLICATE_MAX_COMPLETION_TOKENS: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  throw new Error(`Invalid environment variables: ${parsed.error.message}`);
+  console.error(`Invalid environment variables: ${parsed.error.message}`);
+  process.exit(1);
+}
+
+const requireInProduction = (key: string, value: unknown, missing: string[]) => {
+  if (!parsed.success) return;
+  if (parsed.data.NODE_ENV !== 'production') return;
+  if (typeof value === 'string') {
+    if (!value.trim()) missing.push(key);
+    return;
+  }
+  if (value == null) missing.push(key);
+};
+
+const missing: string[] = [];
+
+requireInProduction('SMTP_HOST', parsed.data.SMTP_HOST, missing);
+requireInProduction('SMTP_PORT', parsed.data.SMTP_PORT, missing);
+requireInProduction('SMTP_USER', parsed.data.SMTP_USER, missing);
+requireInProduction('SMTP_PASS', parsed.data.SMTP_PASS, missing);
+requireInProduction('SMTP_FROM', parsed.data.SMTP_FROM, missing);
+requireInProduction('REPLICATE_API_TOKEN', parsed.data.REPLICATE_API_TOKEN, missing);
+requireInProduction('SUPER_ADMIN_SETUP_KEY', parsed.data.SUPER_ADMIN_SETUP_KEY, missing);
+requireInProduction('APP_FRONTEND_URL', parsed.data.APP_FRONTEND_URL, missing);
+
+if (parsed.data.STORAGE_PROVIDER === 'firebase') {
+  const firebaseMissing: string[] = [];
+  const requireFirebase = (key: string, value: unknown) => {
+    if (typeof value === 'string') {
+      if (!value.trim()) firebaseMissing.push(key);
+      return;
+    }
+    if (value == null) firebaseMissing.push(key);
+  };
+  requireFirebase('FIREBASE_PROJECT_ID', parsed.data.FIREBASE_PROJECT_ID);
+  requireFirebase('FIREBASE_PRIVATE_KEY', parsed.data.FIREBASE_PRIVATE_KEY);
+  requireFirebase('FIREBASE_CLIENT_EMAIL', parsed.data.FIREBASE_CLIENT_EMAIL);
+  requireFirebase('FIREBASE_STORAGE_BUCKET', parsed.data.FIREBASE_STORAGE_BUCKET);
+
+  if (firebaseMissing.length) {
+    console.error(`Missing required Firebase env vars for STORAGE_PROVIDER=firebase: ${firebaseMissing.join(', ')}`);
+    process.exit(1);
+  }
+}
+
+if (missing.length) {
+  console.error(`Missing required environment variables for production: ${missing.join(', ')}`);
+  process.exit(1);
 }
 
 export const env = {
   ...parsed.data,
+  JWT_ACCESS_SECRET: parsed.data.JWT_ACCESS_SECRET ?? parsed.data.JWT_SECRET,
+  JWT_REFRESH_SECRET: parsed.data.JWT_REFRESH_SECRET ?? parsed.data.JWT_SECRET,
   FRONTEND_URL: parsed.data.FRONTEND_URL ?? parsed.data.APP_FRONTEND_URL,
   SMTP_FROM: parsed.data.SMTP_FROM ?? `${parsed.data.SMTP_FROM_NAME} <${parsed.data.SMTP_FROM_EMAIL}>`,
 };

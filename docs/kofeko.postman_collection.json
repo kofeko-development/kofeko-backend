@@ -1,0 +1,764 @@
+{
+  "info": {
+    "_postman_id": "6b2f1f7e-44e1-4c42-a59f-522cf1d2b0d3",
+    "name": "Kofeko API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "tenantSlug", "value": "" },
+    { "key": "jobId", "value": "" },
+    { "key": "candidateId", "value": "" },
+    { "key": "pipelineId", "value": "" },
+    { "key": "evaluationId", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "superAdminToken", "value": "" },
+    { "key": "candidateToken", "value": "" },
+    { "key": "setupKey", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth (Staff)",
+      "item": [
+        {
+          "name": "Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register-admin", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "register-admin"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantName\": \"Acme\",\n  \"tenantSlug\": \"acme\",\n  \"firstName\": \"Admin\",\n  \"lastName\": \"User\",\n  \"email\": \"admin@acme.com\",\n  \"password\": \"AdminA1aaaa\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "login"] },
+            "body": { "mode": "raw", "raw": "{\n  \"tenantSlug\": \"{{tenantSlug}}\",\n  \"email\": \"recruiter@acme.com\",\n  \"password\": \"AdminA1aaaa\"\n}" }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "refresh"] },
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "logout"] },
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "me"] }
+          }
+        },
+        {
+          "name": "Accept Invite",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/accept-invite", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "accept-invite"] },
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"<inviteToken>\",\n  \"password\": \"AdminA1aaaa\"\n}" }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "forgot-password"] },
+            "body": { "mode": "raw", "raw": "{\n  \"tenantSlug\": \"{{tenantSlug}}\",\n  \"email\": \"admin@acme.com\"\n}" }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "reset-password"] },
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"<resetToken>\",\n  \"password\": \"AdminA1aaaa\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/users", "host": ["{{baseUrl}}"], "path": ["api", "v1", "users"] },
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Recruiter\",\n  \"lastName\": \"One\",\n  \"email\": \"recruiter1@acme.com\",\n  \"role\": \"recruiter\"\n}" }
+          }
+        },
+        {
+          "name": "Invite User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/invite", "host": ["{{baseUrl}}"], "path": ["api", "v1", "users", "invite"] },
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"{{userId}}\"\n}" }
+          }
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "users"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Get User",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/{{userId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "users", "{{userId}}"] }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/{{userId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "users", "{{userId}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"active\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Company",
+      "item": [
+        {
+          "name": "Create Company",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/company", "host": ["{{baseUrl}}"], "path": ["api", "v1", "company"] },
+            "body": { "mode": "raw", "raw": "{\n  \"companyName\": \"Acme\",\n  \"industry\": \"Software\",\n  \"companySize\": \"11-50\",\n  \"companyType\": \"startup\",\n  \"foundedYear\": 2020,\n  \"companyWebsite\": \"https://acme.com\",\n  \"officialCompanyAddress\": \"HQ\",\n  \"companyLogo\": \"https://example.com/logo.png\",\n  \"shortDescription\": \"We build things.\",\n  \"termsAccepted\": true,\n  \"companyAddress\": {\"country\":\"US\",\"state\":\"CA\",\"city\":\"SF\",\"zipCode\":\"94105\",\"fullAddress\":\"...\"}\n}" }
+          }
+        },
+        {
+          "name": "Get Company",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/company", "host": ["{{baseUrl}}"], "path": ["api", "v1", "company"] }
+          }
+        },
+        {
+          "name": "Update Company",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/company", "host": ["{{baseUrl}}"], "path": ["api", "v1", "company"] },
+            "body": { "mode": "raw", "raw": "{\n  \"shortDescription\": \"Updated\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "Create Job (with skillWeights)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs", "host": ["{{baseUrl}}"], "path": ["api", "v1", "jobs"] },
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Senior React Developer\",\n  \"description\": \"Some job description.\",\n  \"skillWeights\": [\n    { \"skill\": \"React\", \"weight\": 9 },\n    { \"skill\": \"Node.js\", \"weight\": 8 }\n  ]\n}" }
+          }
+        },
+        {
+          "name": "List Jobs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "jobs"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Get Job",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/{{jobId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "jobs", "{{jobId}}"] }
+          }
+        },
+        {
+          "name": "Update Job",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/{{jobId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "jobs", "{{jobId}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"department\": \"Engineering\"\n}" }
+          }
+        },
+        {
+          "name": "Publish Job",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/{{jobId}}/publish", "host": ["{{baseUrl}}"], "path": ["api", "v1", "jobs", "{{jobId}}", "publish"] }
+          }
+        },
+        {
+          "name": "Pause Job",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/{{jobId}}/pause", "host": ["{{baseUrl}}"], "path": ["api", "v1", "jobs", "{{jobId}}", "pause"] }
+          }
+        },
+        {
+          "name": "Close Job",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/{{jobId}}/close", "host": ["{{baseUrl}}"], "path": ["api", "v1", "jobs", "{{jobId}}", "close"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Candidates",
+      "item": [
+        {
+          "name": "Upload Resume",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/candidates/upload-resume", "host": ["{{baseUrl}}"], "path": ["api", "v1", "candidates", "upload-resume"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "resume", "type": "file", "src": "" }]
+            }
+          }
+        },
+        {
+          "name": "Create Candidate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/candidates", "host": ["{{baseUrl}}"], "path": ["api", "v1", "candidates"] },
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"email\": \"jane@acme.com\",\n  \"resumeUrl\": \"<url>\",\n  \"resumeMimeType\": \"application/pdf\"\n}" }
+          }
+        },
+        {
+          "name": "List Candidates",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/candidates?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "candidates"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Get Candidate",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/candidates/{{candidateId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "candidates", "{{candidateId}}"] }
+          }
+        },
+        {
+          "name": "Update Candidate",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/candidates/{{candidateId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "candidates", "{{candidateId}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"linkedinUrl\": \"https://linkedin.com/in/jane\"\n}" }
+          }
+        },
+        {
+          "name": "Update Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/candidates/{{candidateId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "v1", "candidates", "{{candidateId}}", "status"] },
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"screening\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pipeline",
+      "item": [
+        {
+          "name": "Add to Pipeline",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/pipelines", "host": ["{{baseUrl}}"], "path": ["api", "v1", "pipelines"] },
+            "body": { "mode": "raw", "raw": "{\n  \"jobId\": \"{{jobId}}\",\n  \"candidateId\": \"{{candidateId}}\"\n}" }
+          }
+        },
+        {
+          "name": "List Pipelines",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/pipelines?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "pipelines"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Get Pipeline",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/pipelines/{{pipelineId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "pipelines", "{{pipelineId}}"] }
+          }
+        },
+        {
+          "name": "Advance Stage",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/pipelines/{{pipelineId}}/advance", "host": ["{{baseUrl}}"], "path": ["api", "v1", "pipelines", "{{pipelineId}}", "advance"] },
+            "body": { "mode": "raw", "raw": "{\n  \"stage\": \"screening\",\n  \"note\": \"Good screen\"\n}" }
+          }
+        },
+        {
+          "name": "Assign Interviewer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/pipelines/{{pipelineId}}/assign", "host": ["{{baseUrl}}"], "path": ["api", "v1", "pipelines", "{{pipelineId}}", "assign"] },
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"{{userId}}\"\n}" }
+          }
+        },
+        {
+          "name": "Set SLA",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/pipelines/{{pipelineId}}/sla", "host": ["{{baseUrl}}"], "path": ["api", "v1", "pipelines", "{{pipelineId}}", "sla"] },
+            "body": { "mode": "raw", "raw": "{\n  \"deadline\": \"2030-01-01T00:00:00.000Z\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI Evaluation",
+      "item": [
+        {
+          "name": "Evaluate Candidate (AI)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/evaluations/ai-evaluate", "host": ["{{baseUrl}}"], "path": ["api", "v1", "evaluations", "ai-evaluate"] },
+            "body": { "mode": "raw", "raw": "{\n  \"jobId\": \"{{jobId}}\",\n  \"candidateId\": \"{{candidateId}}\",\n  \"pipelineId\": \"{{pipelineId}}\"\n}" }
+          }
+        },
+        {
+          "name": "Batch Evaluate Job",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/{{jobId}}/evaluate-all", "host": ["{{baseUrl}}"], "path": ["api", "v1", "jobs", "{{jobId}}", "evaluate-all"] }
+          }
+        },
+        {
+          "name": "Get Rankings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/{{jobId}}/rankings", "host": ["{{baseUrl}}"], "path": ["api", "v1", "jobs", "{{jobId}}", "rankings"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Evaluations",
+      "item": [
+        {
+          "name": "List Evaluations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/evaluations?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "evaluations"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Get Evaluation",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/evaluations/{{evaluationId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "evaluations", "{{evaluationId}}"] }
+          }
+        },
+        {
+          "name": "Update Evaluation",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/evaluations/{{evaluationId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "evaluations", "{{evaluationId}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"score\": 85,\n  \"summary\": \"Strong candidate\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Communication",
+      "item": [
+        {
+          "name": "List Messages",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/communication/messages?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "communication", "messages"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/communication/notifications?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "communication", "notifications"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Send Manual Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/communication/send", "host": ["{{baseUrl}}"], "path": ["api", "v1", "communication", "send"] },
+            "body": { "mode": "raw", "raw": "{\n  \"to\": \"candidate@example.com\",\n  \"subject\": \"Hello\",\n  \"html\": \"<p>Message</p>\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analytics/summary", "host": ["{{baseUrl}}"], "path": ["api", "v1", "analytics", "summary"] }
+          }
+        },
+        {
+          "name": "Pipeline Funnel",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analytics/pipeline-funnel", "host": ["{{baseUrl}}"], "path": ["api", "v1", "analytics", "pipeline-funnel"] }
+          }
+        },
+        {
+          "name": "Time to Decision",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analytics/time-to-decision", "host": ["{{baseUrl}}"], "path": ["api", "v1", "analytics", "time-to-decision"] }
+          }
+        },
+        {
+          "name": "Score Distribution",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analytics/score-distribution", "host": ["{{baseUrl}}"], "path": ["api", "v1", "analytics", "score-distribution"] }
+          }
+        },
+        {
+          "name": "Recent Activity",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analytics/recent-activity", "host": ["{{baseUrl}}"], "path": ["api", "v1", "analytics", "recent-activity"] }
+          }
+        },
+        {
+          "name": "Hiring Velocity",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analytics/hiring-velocity", "host": ["{{baseUrl}}"], "path": ["api", "v1", "analytics", "hiring-velocity"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit Logs",
+      "item": [
+        {
+          "name": "List Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit/logs?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "audit", "logs"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }]
+            }
+          }
+        },
+        {
+          "name": "Get Audit Log",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/audit/logs/<auditId>", "host": ["{{baseUrl}}"], "path": ["api", "v1", "audit", "logs", "<auditId>"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Candidate Portal",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/portal/auth/registerCandidate", "host": ["{{baseUrl}}"], "path": ["api", "v1", "portal", "auth", "registerCandidate"] },
+            "body": { "mode": "raw", "raw": "{\n  \"tenantSlug\": \"{{tenantSlug}}\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"email\": \"jane@acme.com\",\n  \"password\": \"CandidateA1aaaa\"\n}" }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/portal/auth/loginCandidate", "host": ["{{baseUrl}}"], "path": ["api", "v1", "portal", "auth", "loginCandidate"] },
+            "body": { "mode": "raw", "raw": "{\n  \"tenantSlug\": \"{{tenantSlug}}\",\n  \"email\": \"jane@acme.com\",\n  \"password\": \"CandidateA1aaaa\"\n}" }
+          }
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/portal/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "v1", "portal", "auth", "refresh"] },
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{candidateToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/portal/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "portal", "auth", "me"] }
+          }
+        },
+        {
+          "name": "List Open Jobs",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/portal/{{tenantSlug}}/jobs?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "portal", "{{tenantSlug}}", "jobs"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Get Job",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/portal/{{tenantSlug}}/jobs/{{jobId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "portal", "{{tenantSlug}}", "jobs", "{{jobId}}"] }
+          }
+        },
+        {
+          "name": "Apply to Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{candidateToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/portal/{{tenantSlug}}/jobs/{{jobId}}/apply", "host": ["{{baseUrl}}"], "path": ["api", "v1", "portal", "{{tenantSlug}}", "jobs", "{{jobId}}", "apply"] },
+            "body": { "mode": "raw", "raw": "{\n  \"coverLetter\": \"Hello\"\n}" }
+          }
+        },
+        {
+          "name": "My Applications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{candidateToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/portal/my-applications?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "portal", "my-applications"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{candidateToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/portal/profile", "host": ["{{baseUrl}}"], "path": ["api", "v1", "portal", "profile"] },
+            "body": { "mode": "raw", "raw": "{\n  \"location\": \"Remote\",\n  \"skills\": [\"TypeScript\"]\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Super Admin",
+      "item": [
+        {
+          "name": "Bootstrap",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-setup-key", "value": "{{setupKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/superadmin/auth/bootstrap", "host": ["{{baseUrl}}"], "path": ["api", "v1", "superadmin", "auth", "bootstrap"] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"sa@kofeko.com\",\n  \"password\": \"SuperAdminA1aaaa\",\n  \"firstName\": \"Super\",\n  \"lastName\": \"Admin\"\n}" }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/superadmin/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "superadmin", "auth", "login"] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"sa@kofeko.com\",\n  \"password\": \"SuperAdminA1aaaa\"\n}" }
+          }
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/superadmin/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "v1", "superadmin", "auth", "refresh"] },
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"<superRefreshToken>\"\n}" }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/superadmin/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "v1", "superadmin", "auth", "logout"] },
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"<superRefreshToken>\"\n}" }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{superAdminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/superadmin/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "superadmin", "auth", "me"] }
+          }
+        },
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{superAdminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/superadmin/tenants?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "superadmin", "tenants"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Get Tenant",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{superAdminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/superadmin/tenants/<tenantId>", "host": ["{{baseUrl}}"], "path": ["api", "v1", "superadmin", "tenants", "<tenantId>"] }
+          }
+        },
+        {
+          "name": "Suspend Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{superAdminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/superadmin/tenants/<tenantId>/suspend", "host": ["{{baseUrl}}"], "path": ["api", "v1", "superadmin", "tenants", "<tenantId>", "suspend"] },
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Non-payment\"\n}" }
+          }
+        },
+        {
+          "name": "Activate Tenant",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{superAdminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/superadmin/tenants/<tenantId>/activate", "host": ["{{baseUrl}}"], "path": ["api", "v1", "superadmin", "tenants", "<tenantId>", "activate"] }
+          }
+        },
+        {
+          "name": "Platform Analytics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{superAdminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/superadmin/analytics", "host": ["{{baseUrl}}"], "path": ["api", "v1", "superadmin", "analytics"] }
+          }
+        }
+      ]
+    }
+  ]
+}
+

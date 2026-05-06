@@ -14,6 +14,13 @@ import {
 
 const userRouter = Router();
 
+/**
+ * @openapi
+ * /api/v1/users:
+ *   post:
+ *     tags: [Users]
+ *     summary: Create staff user
+ */
 userRouter.post(
   '/',
   authenticate,
@@ -21,6 +28,14 @@ userRouter.post(
   validateRequest(createUserSchema),
   createUser,
 );
+
+/**
+ * @openapi
+ * /api/v1/users/invite:
+ *   post:
+ *     tags: [Users]
+ *     summary: Invite staff user (email invite link)
+ */
 userRouter.post(
   '/invite',
   authenticate,
@@ -28,6 +43,14 @@ userRouter.post(
   validateRequest(inviteUserSchema),
   inviteUser,
 );
+
+/**
+ * @openapi
+ * /api/v1/users:
+ *   get:
+ *     tags: [Users]
+ *     summary: List staff users (tenant-scoped)
+ */
 userRouter.get(
   '/',
   authenticate,
@@ -35,6 +58,14 @@ userRouter.get(
   validateRequest(userListQuerySchema),
   listUsers,
 );
+
+/**
+ * @openapi
+ * /api/v1/users/{id}:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get staff user by id
+ */
 userRouter.get(
   '/:id',
   authenticate,
@@ -42,6 +73,14 @@ userRouter.get(
   validateRequest(userIdParamSchema),
   getUser,
 );
+
+/**
+ * @openapi
+ * /api/v1/users/{id}:
+ *   patch:
+ *     tags: [Users]
+ *     summary: Update staff user
+ */
 userRouter.patch(
   '/:id',
   authenticate,

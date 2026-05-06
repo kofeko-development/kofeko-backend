@@ -6,8 +6,13 @@ import { companyRepository } from '../../repositories/company/company.repository
 import { CreateCompanyInput, UpdateCompanyInput } from '../../types/company/company.types';
 import { auditService } from '../audit/audit.service';
 
+type CompanyProfile = {
+  tenant: { id: string; name: string; slug: string };
+  company: Company;
+};
+
 export const companyService = {
-  async createCompany(tenantId: string, payload: CreateCompanyInput, actorId?: string): Promise<Company> {
+  async createCompany(tenantId: string, payload: CreateCompanyInput, actorId?: string): Promise<CompanyProfile> {
     const company = await companyRepository.createForTenant(tenantId, payload);
     await auditService.createAuditLog({
       tenantId,
@@ -17,7 +22,7 @@ export const companyService = {
       entityId: company.id,
       metadata: { companyName: company.companyName },
     });
-    return company;
+    return this.getCompanyProfileByTenantId(tenantId);
   },
 
   async getCompanyByTenantId(tenantId: string): Promise<Company> {
@@ -32,7 +37,7 @@ export const companyService = {
 
   async getCompanyProfileByTenantId(
     tenantId: string,
-  ): Promise<{ tenant: { id: string; name: string; slug: string }; company: Company }> {
+  ): Promise<CompanyProfile> {
     const result = await companyRepository.findCompanyWithTenantInfo(tenantId);
     if (!result) {
       throw new AppError('Company not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
@@ -40,7 +45,11 @@ export const companyService = {
     return result;
   },
 
-  async updateCompanyByTenantId(tenantId: string, payload: UpdateCompanyInput, actorId?: string): Promise<Company> {
+  async updateCompanyByTenantId(
+    tenantId: string,
+    payload: UpdateCompanyInput,
+    actorId?: string,
+  ): Promise<CompanyProfile> {
     const before = await this.getCompanyByTenantId(tenantId);
     const company = await companyRepository.updateByTenantId(tenantId, payload);
     await auditService.createAuditLog({
@@ -51,6 +60,6 @@ export const companyService = {
       entityId: company.id,
       metadata: { before, after: company },
     });
-    return company;
+    return this.getCompanyProfileByTenantId(tenantId);
   },
 };

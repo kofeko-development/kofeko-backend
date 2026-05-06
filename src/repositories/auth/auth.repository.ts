@@ -1,7 +1,10 @@
 import { InviteToken, PasswordResetToken, Permission, Tenant, User, UserStatus } from '@prisma/client';
+import { StatusCodes } from 'http-status-codes';
 import { prisma } from '../../config/prisma';
 import { DEFAULT_ROLE_PERMISSION_MATRIX } from '../../common/constants/rolePermissionMatrix';
 import { ROLE_NAMES } from '../../common/constants/roles';
+import { AppError } from '../../common/errors/AppError';
+import { ERROR_CODES } from '../../common/errors/errorCodes';
 
 type BootstrapTenantAdminInput = {
   tenantName: string;
@@ -113,7 +116,11 @@ export const authRepository = {
       const companyAdminRoleId = roleByName.get(ROLE_NAMES.COMPANY_ADMIN);
 
       if (!companyAdminRoleId) {
-        throw new Error('Default company_admin role was not created during tenant bootstrap');
+        throw new AppError(
+          'Default company_admin role was not created during tenant bootstrap',
+          StatusCodes.INTERNAL_SERVER_ERROR,
+          ERROR_CODES.INTERNAL_SERVER_ERROR,
+        );
       }
 
       const user = await tx.user.create({
@@ -392,13 +399,18 @@ export const authRepository = {
   },
 
   async activateUserWithPassword(userId: string, tenantId: string, passwordHash: string): Promise<User> {
-    return prisma.user.update({
-      where: { id: userId },
-      data: {
-        passwordHash,
-        status: UserStatus.active,
-      },
+    const updated = await prisma.user.updateMany({
+      where: { id: userId, tenantId },
+      data: { passwordHash, status: UserStatus.active },
     });
+
+    if (updated.count === 0) {
+      throw new AppError('User not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    // updateMany succeeded, so user must exist
+    return user as User;
   },
 
   async updateUserPassword(userId: string, passwordHash: string): Promise<User> {

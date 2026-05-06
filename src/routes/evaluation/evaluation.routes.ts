@@ -5,21 +5,28 @@ import { validateRequest } from '../../common/middlewares/validateRequest';
 import { PERMISSIONS } from '../../common/constants/permissions';
 import {
   createEvaluation,
+  aiEvaluate,
   getEvaluation,
   listEvaluations,
-  previewEvaluationInsight,
   updateEvaluation,
 } from '../../controllers/evaluation/evaluation.controller';
 import {
+  aiEvaluateSchema,
   createEvaluationSchema,
   evaluationIdParamSchema,
-  evaluationInsightPreviewSchema,
   evaluationListQuerySchema,
   updateEvaluationSchema,
 } from '../../validations/evaluation/evaluation.validation';
 
 const evaluationRouter = Router();
 
+/**
+ * @openapi
+ * /api/v1/evaluations:
+ *   post:
+ *     tags: [Evaluation]
+ *     summary: Create evaluation (manual)
+ */
 evaluationRouter.post(
   '/',
   authenticate,
@@ -27,6 +34,29 @@ evaluationRouter.post(
   validateRequest(createEvaluationSchema),
   createEvaluation,
 );
+
+/**
+ * @openapi
+ * /api/v1/evaluations/ai-evaluate:
+ *   post:
+ *     tags: [Evaluation]
+ *     summary: Run AI evaluation for a candidate against a job
+ */
+evaluationRouter.post(
+  '/ai-evaluate',
+  authenticate,
+  authorize([PERMISSIONS.EVALUATION_CREATE]),
+  validateRequest(aiEvaluateSchema),
+  aiEvaluate,
+);
+
+/**
+ * @openapi
+ * /api/v1/evaluations:
+ *   get:
+ *     tags: [Evaluation]
+ *     summary: List evaluations (tenant-scoped)
+ */
 evaluationRouter.get(
   '/',
   authenticate,
@@ -34,13 +64,14 @@ evaluationRouter.get(
   validateRequest(evaluationListQuerySchema),
   listEvaluations,
 );
-evaluationRouter.post(
-  '/preview',
-  authenticate,
-  authorize([PERMISSIONS.EVALUATION_READ]),
-  validateRequest(evaluationInsightPreviewSchema),
-  previewEvaluationInsight,
-);
+
+/**
+ * @openapi
+ * /api/v1/evaluations/{id}:
+ *   get:
+ *     tags: [Evaluation]
+ *     summary: Get evaluation by id
+ */
 evaluationRouter.get(
   '/:id',
   authenticate,
@@ -48,6 +79,14 @@ evaluationRouter.get(
   validateRequest(evaluationIdParamSchema),
   getEvaluation,
 );
+
+/**
+ * @openapi
+ * /api/v1/evaluations/{id}:
+ *   patch:
+ *     tags: [Evaluation]
+ *     summary: Update evaluation (recruiter override)
+ */
 evaluationRouter.patch(
   '/:id',
   authenticate,

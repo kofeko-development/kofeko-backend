@@ -63,7 +63,6 @@ async function bootstrapTenantAdminIfEmpty(): Promise<void> {
     },
   });
 
-  console.log(`Bootstrap created tenant '${tenant.slug}' with admin '${user.email}'.`);
 }
 
 async function seedTenantPermissionsAndAdminRole(): Promise<void> {
@@ -127,7 +126,6 @@ async function seedTenantPermissionsAndAdminRole(): Promise<void> {
 async function main(): Promise<void> {
   await bootstrapTenantAdminIfEmpty();
   await seedTenantPermissionsAndAdminRole();
-  console.log('Seed completed: tenant bootstrap and RBAC sync are done.');
 }
 
 main()

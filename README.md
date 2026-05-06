@@ -74,14 +74,23 @@ npm run dev
 
 Server runs at `http://localhost:5000`.
 
-## API Endpoints (Company)
+## API Endpoints (Stage 1 + Stage 2)
 
-- `POST /api/v1/companies/register`
-- `GET /api/v1/companies/:id`
-- `PATCH /api/v1/companies/:id`
+- `POST /api/v1/auth/register-admin`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/logout`
+- `POST /api/v1/users/invite`
+- `POST /api/v1/auth/accept-invite`
+- `POST /api/v1/auth/forgot-password`
+- `POST /api/v1/auth/reset-password`
+- `POST /api/v1/company`
+- `GET /api/v1/company`
+- `PATCH /api/v1/company`
 - `GET /health`
 
-## API Endpoints (New Phases)
+## API Endpoints (Other Modules)
 
 - `GET /api/v1/system/seed-status`
 - `POST /api/v1/auth/register-admin`
@@ -93,28 +102,28 @@ Server runs at `http://localhost:5000`.
 - `GET /api/v1/tenants/:id`
 - `PATCH /api/v1/tenants/:id`
 - `POST /api/v1/users`
-- `GET /api/v1/users?tenantId=...`
+- `GET /api/v1/users`
 - `GET /api/v1/users/:id`
 - `PATCH /api/v1/users/:id`
 - `POST /api/v1/rbac/roles`
 - `POST /api/v1/rbac/permissions`
 - `POST /api/v1/rbac/roles/:roleId/permissions/:permissionId`
 - `POST /api/v1/rbac/users/:userId/roles/:roleId`
-- `GET /api/v1/rbac/users/:userId/permissions?tenantId=...`
+- `GET /api/v1/rbac/users/:userId/permissions`
 - `POST /api/v1/jobs`
-- `GET /api/v1/jobs?tenantId=...`
+- `GET /api/v1/jobs`
 - `GET /api/v1/jobs/:id`
 - `PATCH /api/v1/jobs/:id`
 - `POST /api/v1/candidates`
-- `GET /api/v1/candidates?tenantId=...`
+- `GET /api/v1/candidates`
 - `GET /api/v1/candidates/:id`
 - `PATCH /api/v1/candidates/:id`
 - `POST /api/v1/pipelines`
-- `GET /api/v1/pipelines?tenantId=...`
+- `GET /api/v1/pipelines`
 - `GET /api/v1/pipelines/:id`
 - `PATCH /api/v1/pipelines/:id`
 - `POST /api/v1/evaluations`
-- `GET /api/v1/evaluations?tenantId=...`
+- `GET /api/v1/evaluations`
 - `GET /api/v1/evaluations/:id`
 - `PATCH /api/v1/evaluations/:id`
 

@@ -34,11 +34,10 @@ export const evaluationListQuerySchema = z.object({
   }),
 });
 
-export const evaluationInsightPreviewSchema = z.object({
+export const aiEvaluateSchema = z.object({
   body: z.object({
-    score: z.number().min(0).max(100),
-    summary: z.string().max(3000).optional(),
-    candidateName: z.string().max(160).optional(),
-    jobTitle: z.string().max(200).optional(),
+    jobId: z.uuid(),
+    candidateId: z.uuid(),
+    pipelineId: z.uuid().optional(),
   }),
 });

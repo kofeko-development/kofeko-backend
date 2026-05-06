@@ -38,7 +38,8 @@ describe('Stage 2: company onboarding', () => {
       .send(createPayload);
 
     expect(createRes.status).toBe(201);
-    expect(createRes.body.data.companyName).toBe('Acme Inc');
+    expect(createRes.body.data.company.companyName).toBe('Acme Inc');
+    expect(createRes.body.data.tenant.id).toBe(tenant.id);
 
     const tenantRow = await prisma.tenant.findUnique({ where: { id: tenant.id } });
     expect(tenantRow?.companyId).toBeTruthy();
@@ -63,7 +64,7 @@ describe('Stage 2: company onboarding', () => {
       });
 
     expect(patchRes.status).toBe(200);
-    expect(patchRes.body.data.shortDescription).toBe('Updated description for Acme company profile.');
+    expect(patchRes.body.data.company.shortDescription).toBe('Updated description for Acme company profile.');
 
     const getRes2 = await request(app).get('/api/v1/company').set('Authorization', `Bearer ${accessToken}`);
     expect(getRes2.status).toBe(200);

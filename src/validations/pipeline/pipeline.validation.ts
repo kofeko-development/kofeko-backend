@@ -1,19 +1,18 @@
 import { z } from 'zod';
+import { PIPELINE_STAGES } from '../../common/constants/pipelineStages';
 
 export const createPipelineSchema = z.object({
   body: z.object({
     jobId: z.uuid(),
     candidateId: z.uuid(),
-    stage: z.enum(['applied', 'screening', 'technical_interview', 'hr_interview', 'offer', 'hired', 'rejected']).optional(),
-    notes: z.string().max(2000).optional(),
   }),
 });
 
 export const updatePipelineSchema = z.object({
   params: z.object({ id: z.uuid() }),
   body: z.object({
-    stage: z.enum(['applied', 'screening', 'technical_interview', 'hr_interview', 'offer', 'hired', 'rejected']).optional(),
-    notes: z.string().max(2000).optional(),
+    decisionNote: z.string().max(5000).optional(),
+    slaDeadline: z.coerce.date().optional(),
   }),
 });
 
@@ -25,5 +24,30 @@ export const pipelineListQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().max(100).optional(),
+    jobId: z.uuid().optional(),
+    candidateId: z.uuid().optional(),
+    stage: z.enum(PIPELINE_STAGES).optional(),
+  }),
+});
+
+export const advanceStageSchema = z.object({
+  params: z.object({ id: z.uuid() }),
+  body: z.object({
+    stage: z.enum(PIPELINE_STAGES),
+    note: z.string().max(5000).optional(),
+  }),
+});
+
+export const assignInterviewerSchema = z.object({
+  params: z.object({ id: z.uuid() }),
+  body: z.object({
+    userId: z.uuid(),
+  }),
+});
+
+export const setPipelineSLASchema = z.object({
+  params: z.object({ id: z.uuid() }),
+  body: z.object({
+    deadline: z.coerce.date(),
   }),
 });

@@ -15,8 +15,31 @@ import {
 
 const companyRouter = Router();
 
+/**
+ * @openapi
+ * /api/v1/company:
+ *   post:
+ *     tags: [Company]
+ *     summary: Create company profile for tenant
+ */
 companyRouter.post('/', authenticate, authorize([PERMISSIONS.COMPANY_UPDATE]), validateRequest(createCompanySchema), registerCompany);
+
+/**
+ * @openapi
+ * /api/v1/company:
+ *   get:
+ *     tags: [Company]
+ *     summary: Get company profile for tenant
+ */
 companyRouter.get('/', authenticate, authorize([PERMISSIONS.COMPANY_READ]), getCompany);
+
+/**
+ * @openapi
+ * /api/v1/company:
+ *   patch:
+ *     tags: [Company]
+ *     summary: Update company profile for tenant
+ */
 companyRouter.patch('/', authenticate, authorize([PERMISSIONS.COMPANY_UPDATE]), validateRequest(updateCompanySchema), updateCompany);
 
 export default companyRouter;

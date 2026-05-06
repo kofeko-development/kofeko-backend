@@ -1,5 +1,8 @@
 import { Role, User, UserStatus } from '@prisma/client';
+import { StatusCodes } from 'http-status-codes';
 import { prisma } from '../../config/prisma';
+import { AppError } from '../../common/errors/AppError';
+import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { UpdateUserInput } from '../../types/user/user.types';
 
 export const userRepository = {
@@ -62,17 +65,25 @@ export const userRepository = {
     });
   },
 
-  async listByTenant(tenantId: string): Promise<User[]> {
-    return prisma.user.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: 'desc' },
-    });
+  async listByTenant(tenantId: string, input: { page: number; limit: number }): Promise<{ items: User[]; total: number }> {
+    const { page, limit } = input;
+    const [items, total] = await Promise.all([
+      prisma.user.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.user.count({ where: { tenantId } }),
+    ]);
+
+    return { items, total };
   },
 
   async updateByIdAndTenant(id: string, tenantId: string, data: UpdateUserInput): Promise<User> {
     const current = await prisma.user.findFirst({ where: { id, tenantId } });
     if (!current) {
-      throw new Error('User not found in tenant');
+      throw new AppError('User not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
     return prisma.user.update({ where: { id: current.id }, data });
   },

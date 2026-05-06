@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import { verifySuperAdminToken } from '../auth/superadminJwt';
+import { verifySuperAdminAccessToken } from '../auth/superAdmin.jwt';
 import { AppError } from '../errors/AppError';
 import { ERROR_CODES } from '../errors/errorCodes';
 
@@ -11,10 +11,18 @@ export const authenticateSuperAdmin = (req: Request, _res: Response, next: NextF
   }
 
   const token = authHeader.split(' ')[1];
-  const payload = verifySuperAdminToken(token);
-  if (payload.role !== 'superadmin') {
-    throw new AppError('Unauthorized', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+  let payload: any;
+  try {
+    payload = verifySuperAdminAccessToken(token) as any;
+  } catch {
+    throw new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
   }
+
+  if (payload.type !== 'super_admin') {
+    throw new AppError('Tenant tokens are not valid on super admin routes', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
+  }
+
+  req.superAdmin = { superAdminId: payload.sub };
 
   next();
 };

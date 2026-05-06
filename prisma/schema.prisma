@@ -27,10 +27,17 @@ enum JobStatus {
   closed
 }
 
+enum HiringPriority {
+  high
+  medium
+  low
+}
+
 enum CandidateStatus {
   new
-  screened
-  shortlisted
+  screening
+  interview
+  offer
   rejected
   hired
 }
@@ -51,6 +58,12 @@ enum NotificationChannel {
   in_app
 }
 
+enum TenantStatus {
+  active
+  suspended
+  pending
+}
+
 enum AuditActionType {
   create
   update
@@ -58,6 +71,10 @@ enum AuditActionType {
   login
   logout
   evaluate
+  ai_evaluate
+  send_message
+  suspend
+  activate
 }
 
 enum CompanyRegistrationStatus {
@@ -93,6 +110,7 @@ model Tenant {
   slug        String       @unique
   companyId   String?      @unique
   company     Company?     @relation(fields: [companyId], references: [id])
+  status      TenantStatus @default(active)
   users       User[]
   inviteTokens InviteToken[]
   passwordResetTokens PasswordResetToken[]
@@ -110,6 +128,30 @@ model Tenant {
   auditLogs   AuditLog[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+model SuperAdmin {
+  id           String              @id @default(uuid())
+  email        String              @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  sessions     SuperAdminSession[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model SuperAdminSession {
+  id               String     @id @default(uuid())
+  superAdminId     String
+  refreshTokenHash String
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  superAdmin       SuperAdmin @relation(fields: [superAdminId], references: [id])
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 }
 
 model User {
@@ -235,6 +277,14 @@ model Job {
   employmentType  String?
   status          JobStatus   @default(draft)
   openings        Int         @default(1)
+  department         String?
+  experienceMin      Int?
+  experienceMax      Int?
+  skillWeights       Json?
+  requirements       String?
+  niceToHave         String?
+  screeningQuestions String[] @default([])
+  hiringPriority     HiringPriority?
   applications    Pipeline[]
   evaluations     Evaluation[]
   createdAt       DateTime    @default(now())
@@ -248,8 +298,19 @@ model Candidate {
   firstName        String
   lastName         String
   email            String
+  passwordHash     String?
+  emailVerified    Boolean          @default(false)
+  lastLoginAt      DateTime?
   phoneNumber      String?
   resumeUrl        String?
+  resumeMimeType   String?
+  linkedinUrl      String?
+  portfolioUrl     String?
+  expectedSalary   Float?
+  noticePeriod     Int?
+  skills           String[]         @default([])
+  location         String?
+  source           String?
   currentCompany   String?
   yearsOfExperience Float?
   status           CandidateStatus  @default(new)
@@ -270,6 +331,9 @@ model Pipeline {
   candidateId   String
   candidate     Candidate     @relation(fields: [candidateId], references: [id])
   stage         PipelineStage @default(applied)
+  assignedTo    String?
+  slaDeadline   DateTime?
+  decisionNote  String?
   notes         String?
   evaluations   Evaluation[]
   createdAt     DateTime      @default(now())
@@ -291,6 +355,12 @@ model Evaluation {
   score          Float
   summary        String?
   whyCard        String?
+  aiGenerated    Boolean   @default(false)
+  rankingSummary String?
+  roleFitNotes   String?
+  sectionScores  Json?
+  skillMatches   Json?
+  parsedResumeData Json?
   evaluatedBy    String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -301,6 +371,7 @@ model Notification {
   tenantId    String
   tenant      Tenant              @relation(fields: [tenantId], references: [id])
   channel     NotificationChannel
+  type        String
   title       String
   body        String
   recipient   String
@@ -314,10 +385,13 @@ model Message {
   id          String   @id @default(uuid())
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  type        String
   subject     String
   body        String
   recipient   String
+  status      String   @default("queued")
   direction   String   @default("outbound")
+  sentAt      DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

@@ -4,9 +4,11 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import swaggerUi from 'swagger-ui-express';
 import routes from './routes';
 import { notFoundHandler } from './common/middlewares/notFound';
 import { errorHandler } from './common/middlewares/errorHandler';
+import { swaggerSpec } from './common/swagger/swagger.config.ts';
 
 const app = express();
 
@@ -21,6 +23,12 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/health', (_req, res) => {
   res.status(200).json({ success: true, message: 'Server is healthy' });
 });
+
+app.use('/uploads', express.static('uploads'));
+
+if (process.env.SWAGGER_ENABLED === 'true') {
+  app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 app.use('/api/v1', routes);
 

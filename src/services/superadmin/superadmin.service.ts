@@ -1,153 +1,145 @@
-import { CompanyRegistrationStatus, Prisma } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { env } from '../../config/env';
-import { signSuperAdminToken } from '../../common/auth/superadminJwt';
+import { comparePassword, hashPassword } from '../../common/auth/password';
+import { createTokenHash } from '../../common/auth/tokenHash';
+import { signSuperAdminAccessToken, signSuperAdminRefreshToken, verifySuperAdminRefreshToken } from '../../common/auth/superAdmin.jwt';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { prisma } from '../../config/prisma';
-import { hashPassword } from '../../common/auth/password';
-import { authRepository } from '../../repositories/auth/auth.repository';
-import { PERMISSIONS } from '../../common/constants/permissions';
-import { sendCompanyApprovalEmail } from '../email/approval-email.service';
 
-const splitContactName = (fullName: string) => {
-  const [firstName, ...rest] = fullName.trim().split(/\s+/);
-  return {
-    firstName: firstName || 'Admin',
-    lastName: rest.join(' ') || 'User',
-  };
+const sanitizeSuperAdmin = <T extends { passwordHash: string }>(admin: T): Omit<T, 'passwordHash'> => {
+  const { passwordHash: _passwordHash, ...safe } = admin;
+  return safe;
+};
+
+const getRefreshExpiryDate = (): Date => {
+  const value = env.JWT_REFRESH_EXPIRES_IN;
+  const match = value.match(/^(\d+)([mhd])$/);
+
+  if (!match) {
+    return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2];
+  const factor = unit === 'm' ? 60 * 1000 : unit === 'h' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  return new Date(Date.now() + amount * factor);
 };
 
 export const superAdminService = {
-  async login(username: string, password: string) {
-    if (username !== env.SUPERADMIN_USERNAME || password !== env.SUPERADMIN_PASSWORD) {
-      throw new AppError('Invalid superadmin credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
-    }
-
-    return {
-      accessToken: signSuperAdminToken(username),
-      username,
-    };
-  },
-
-  async listRequests(status?: CompanyRegistrationStatus) {
-    return prisma.companyRegistrationRequest.findMany({
-      where: status ? { status } : undefined,
-      orderBy: { createdAt: 'desc' },
-    });
-  },
-
-  async approveRequest(
-    requestId: string,
-    payload: { tenantSlug: string; adminEmail: string; adminPassword: string; otp: string; reviewNotes?: string },
+  async bootstrap(
+    payload: { email: string; password: string; firstName: string; lastName: string },
+    setupKey: string,
   ) {
-    const request = await prisma.companyRegistrationRequest.findUnique({ where: { id: requestId } });
-    if (!request) {
-      throw new AppError('Registration request not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
-    }
-    if (request.status !== CompanyRegistrationStatus.pending) {
-      throw new AppError('Only pending requests can be approved', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    if (!env.SUPER_ADMIN_SETUP_KEY || setupKey !== env.SUPER_ADMIN_SETUP_KEY) {
+      throw new AppError('Invalid setup key', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
 
-    const existingTenant = await prisma.tenant.findUnique({ where: { slug: payload.tenantSlug } });
-    if (existingTenant) {
-      throw new AppError('Tenant slug already exists', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
+    const existing = await prisma.superAdmin.findFirst();
+    if (existing) {
+      throw new AppError('Super admin already bootstrapped', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
     }
 
-    const passwordHash = await hashPassword(payload.adminPassword);
-    const otpHash = await hashPassword(payload.otp);
-    const { firstName, lastName } = splitContactName(request.contactName);
-
-    const { tenant, user } = await authRepository.bootstrapTenantAdmin({
-      tenantName: request.companyName,
-      tenantSlug: payload.tenantSlug,
-      firstName,
-      lastName,
-      email: payload.adminEmail,
-      passwordHash,
-      permissionKeys: Object.values(PERMISSIONS),
-    });
-
-    const company = await prisma.company.create({
+    const passwordHash = await hashPassword(payload.password);
+    const created = await prisma.superAdmin.create({
       data: {
-        companyName: request.companyName,
-        companyAddress: request.companyAddress as Prisma.InputJsonValue,
-        industry: request.industry,
-        companySize: request.companySize,
-        companyType: request.companyType,
-        foundedYear: request.foundedYear,
-        companyWebsite: request.companyWebsite,
-        officialCompanyAddress: request.officialCompanyAddress,
-        phoneNumber: request.phoneNumber,
-        companyLogo: request.companyLogo,
-        shortDescription: request.shortDescription,
-        linkedinUrl: request.linkedinUrl,
-        twitterUrl: request.twitterUrl,
-        termsAccepted: request.termsAccepted,
+        email: payload.email.toLowerCase(),
+        passwordHash,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
       },
     });
 
-    await prisma.tenant.update({
-      where: { id: tenant.id },
-      data: { companyId: company.id },
+    return sanitizeSuperAdmin(created);
+  },
+
+  async login(email: string, password: string, userAgent?: string, ipAddress?: string) {
+    const admin = await prisma.superAdmin.findUnique({
+      where: { email: email.toLowerCase() },
     });
 
-    await prisma.user.update({
-      where: { id: user.id },
+    if (!admin) {
+      throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const ok = await comparePassword(password, admin.passwordHash);
+    if (!ok) {
+      throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const payload = { sub: admin.id, type: 'super_admin' as const };
+    const accessToken = signSuperAdminAccessToken(payload);
+    const refreshToken = signSuperAdminRefreshToken(payload);
+
+    await prisma.superAdminSession.create({
       data: {
-        otpRequired: true,
-        loginOtpHash: otpHash,
-        loginOtpExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        superAdminId: admin.id,
+        refreshTokenHash: createTokenHash(refreshToken),
+        userAgent,
+        ipAddress,
+        expiresAt: getRefreshExpiryDate(),
       },
-    });
-
-    await prisma.companyRegistrationRequest.update({
-      where: { id: request.id },
-      data: {
-        status: CompanyRegistrationStatus.approved,
-        reviewedBy: env.SUPERADMIN_USERNAME,
-        reviewNotes: payload.reviewNotes,
-        approvedTenantId: tenant.id,
-      },
-    });
-
-    const mailSent = await sendCompanyApprovalEmail({
-      companyName: request.companyName,
-      toEmail: request.contactEmail,
-      tenantSlug: tenant.slug,
-      username: payload.adminEmail,
-      password: payload.adminPassword,
-      otp: payload.otp,
     });
 
     return {
-      tenantId: tenant.id,
-      tenantSlug: tenant.slug,
-      adminEmail: payload.adminEmail,
-      otpRequired: true,
-      mailSent,
-      message: mailSent
-        ? 'Company approved, credentials issued, and approval email sent'
-        : 'Company approved and credentials issued, but email could not be sent (SMTP not configured)',
+      accessToken,
+      refreshToken,
+      superAdmin: sanitizeSuperAdmin(admin),
     };
   },
 
-  async rejectRequest(requestId: string, reviewNotes: string) {
-    const request = await prisma.companyRegistrationRequest.findUnique({ where: { id: requestId } });
-    if (!request) {
-      throw new AppError('Registration request not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
-    }
-    if (request.status !== CompanyRegistrationStatus.pending) {
-      throw new AppError('Only pending requests can be rejected', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  async refresh(refreshToken: string) {
+    const decoded = verifySuperAdminRefreshToken(refreshToken);
+    if (decoded.type !== 'super_admin') {
+      throw new AppError('Invalid refresh token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
-    return prisma.companyRegistrationRequest.update({
-      where: { id: requestId },
-      data: {
-        status: CompanyRegistrationStatus.rejected,
-        reviewedBy: env.SUPERADMIN_USERNAME,
-        reviewNotes,
+    const session = await prisma.superAdminSession.findFirst({
+      where: {
+        superAdminId: decoded.sub,
+        refreshTokenHash: createTokenHash(refreshToken),
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
       },
     });
+
+    if (!session) {
+      throw new AppError('Invalid refresh token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const accessToken = signSuperAdminAccessToken({ sub: decoded.sub, type: 'super_admin' });
+    return { accessToken };
+  },
+
+  async logout(refreshToken: string) {
+    const decoded = verifySuperAdminRefreshToken(refreshToken);
+    if (decoded.type !== 'super_admin') {
+      return;
+    }
+
+    const session = await prisma.superAdminSession.findFirst({
+      where: {
+        superAdminId: decoded.sub,
+        refreshTokenHash: createTokenHash(refreshToken),
+        revokedAt: null,
+      },
+    });
+
+    if (!session) {
+      return;
+    }
+
+    await prisma.superAdminSession.update({
+      where: { id: session.id },
+      data: { revokedAt: new Date() },
+    });
+  },
+
+  async me(superAdminId: string) {
+    const admin = await prisma.superAdmin.findUnique({ where: { id: superAdminId } });
+    if (!admin) {
+      throw new AppError('Super admin not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+    return sanitizeSuperAdmin(admin);
   },
 };

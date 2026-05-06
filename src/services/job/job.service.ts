@@ -9,7 +9,10 @@ import { PaginationInput } from '../../common/utils/pagination';
 
 export const jobService = {
   async createJob(payload: CreateJobInput, actorId?: string): Promise<Job> {
-    const job = await jobRepository.create(payload);
+    const job = await jobRepository.create({
+      ...payload,
+      status: 'draft',
+    });
     await auditService.createAuditLog({
       tenantId: payload.tenantId,
       action: 'create',
@@ -29,12 +32,23 @@ export const jobService = {
     return job;
   },
 
-  async listJobsByTenant(tenantId: string, pagination: PaginationInput): Promise<{ items: Job[]; total: number }> {
-    return jobRepository.listByTenant(tenantId, pagination.page, pagination.limit);
+  async listJobsByTenant(
+    tenantId: string,
+    input: PaginationInput & { status?: Job['status']; department?: string },
+  ): Promise<{ items: Job[]; total: number }> {
+    return jobRepository.listByTenant(tenantId, {
+      page: input.page,
+      limit: input.limit,
+      status: input.status,
+      department: input.department,
+    });
   },
 
   async updateJob(id: string, tenantId: string, payload: UpdateJobInput, actorId?: string): Promise<Job> {
     const currentJob = await this.getJobById(id, tenantId);
+    if (currentJob.status === 'closed') {
+      throw new AppError('Closed jobs cannot be updated', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
     const updatedJob = await jobRepository.updateByIdAndTenant(id, tenantId, payload);
     await auditService.createAuditLog({
       tenantId: currentJob.tenantId,
@@ -45,5 +59,55 @@ export const jobService = {
       metadata: { before: currentJob, after: updatedJob },
     });
     return updatedJob;
+  },
+
+  async publishJob(id: string, tenantId: string, actorId?: string): Promise<Job> {
+    const currentJob = await this.getJobById(id, tenantId);
+    if (currentJob.status === 'closed') {
+      throw new AppError('Closed jobs cannot be reopened', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+    if (currentJob.status === 'open') return currentJob;
+    const updated = await jobRepository.updateByIdAndTenant(id, tenantId, { status: 'open' } satisfies { status: Job['status'] });
+    await auditService.createAuditLog({
+      tenantId,
+      action: 'update',
+      actorId,
+      entityType: 'Job',
+      entityId: updated.id,
+      metadata: { beforeStatus: currentJob.status, afterStatus: updated.status },
+    });
+    return updated;
+  },
+
+  async pauseJob(id: string, tenantId: string, actorId?: string): Promise<Job> {
+    const currentJob = await this.getJobById(id, tenantId);
+    if (currentJob.status !== 'open') {
+      throw new AppError('Only open jobs can be paused', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+    const updated = await jobRepository.updateByIdAndTenant(id, tenantId, { status: 'paused' } satisfies { status: Job['status'] });
+    await auditService.createAuditLog({
+      tenantId,
+      action: 'update',
+      actorId,
+      entityType: 'Job',
+      entityId: updated.id,
+      metadata: { beforeStatus: currentJob.status, afterStatus: updated.status },
+    });
+    return updated;
+  },
+
+  async closeJob(id: string, tenantId: string, actorId?: string): Promise<Job> {
+    const currentJob = await this.getJobById(id, tenantId);
+    if (currentJob.status === 'closed') return currentJob;
+    const updated = await jobRepository.updateByIdAndTenant(id, tenantId, { status: 'closed' } satisfies { status: Job['status'] });
+    await auditService.createAuditLog({
+      tenantId,
+      action: 'update',
+      actorId,
+      entityType: 'Job',
+      entityId: updated.id,
+      metadata: { beforeStatus: currentJob.status, afterStatus: updated.status },
+    });
+    return updated;
   },
 };

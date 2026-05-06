@@ -7,6 +7,14 @@ beforeAll(async () => {
 beforeEach(async () => {
   // Clear in dependency order.
   await prisma.auditLog.deleteMany();
+  await prisma.superAdminSession.deleteMany();
+  await prisma.superAdmin.deleteMany();
+  await prisma.evaluation.deleteMany();
+  await prisma.pipeline.deleteMany();
+  await prisma.candidate.deleteMany();
+  await prisma.job.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.message.deleteMany();
   await prisma.passwordResetToken.deleteMany();
   await prisma.inviteToken.deleteMany();
   await prisma.session.deleteMany();
@@ -15,8 +23,8 @@ beforeEach(async () => {
   await prisma.permission.deleteMany();
   await prisma.role.deleteMany();
   await prisma.user.deleteMany();
-  await prisma.tenant.deleteMany();
   await prisma.company.deleteMany();
+  await prisma.tenant.deleteMany();
 });
 
 afterAll(async () => {

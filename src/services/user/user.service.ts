@@ -14,6 +14,7 @@ import { auditService } from '../audit/audit.service';
 import { authRepository } from '../../repositories/auth/auth.repository';
 import { userRepository } from '../../repositories/user/user.repository';
 import { CreateUserInput, InviteUserInput, UpdateUserInput } from '../../types/user/user.types';
+import { PaginationInput } from '../../common/utils/pagination';
 
 const resolveRoleForTenant = async (tenantId: string, roleName: string) => {
   const role = await userRepository.findRoleByTenantAndName(tenantId, roleName);
@@ -114,8 +115,8 @@ export const userService = {
     return user;
   },
 
-  async listUsersByTenant(tenantId: string): Promise<User[]> {
-    return userRepository.listByTenant(tenantId);
+  async listUsersByTenant(tenantId: string, pagination: PaginationInput): Promise<{ items: User[]; total: number }> {
+    return userRepository.listByTenant(tenantId, { page: pagination.page, limit: pagination.limit });
   },
 
   async updateUser(id: string, tenantId: string, payload: UpdateUserInput): Promise<User> {

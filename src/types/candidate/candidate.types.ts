@@ -7,6 +7,14 @@ export type CreateCandidateInput = {
   email: string;
   phoneNumber?: string;
   resumeUrl?: string;
+  resumeMimeType?: string;
+  linkedinUrl?: string;
+  portfolioUrl?: string;
+  expectedSalary?: number;
+  noticePeriod?: number;
+  skills?: string[];
+  location?: string;
+  source?: string;
   currentCompany?: string;
   yearsOfExperience?: number;
   status?: CandidateStatus;

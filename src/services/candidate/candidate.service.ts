@@ -9,7 +9,12 @@ import { PaginationInput } from '../../common/utils/pagination';
 
 export const candidateService = {
   async createCandidate(payload: CreateCandidateInput, actorId?: string): Promise<Candidate> {
-    const candidate = await candidateRepository.create(payload);
+    const existing = await candidateRepository.findByEmailInTenant(payload.tenantId, payload.email);
+    if (existing) {
+      throw new AppError('Candidate with this email already exists', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
+    }
+
+    const candidate = await candidateRepository.create({ ...payload, status: 'new' });
     await auditService.createAuditLog({
       tenantId: payload.tenantId,
       action: 'create',
@@ -29,8 +34,20 @@ export const candidateService = {
     return candidate;
   },
 
-  async listCandidatesByTenant(tenantId: string, pagination: PaginationInput): Promise<{ items: Candidate[]; total: number }> {
-    return candidateRepository.listByTenant(tenantId, pagination.page, pagination.limit);
+  async listCandidates(
+    tenantId: string,
+    input: { pagination: PaginationInput; status?: string; skills?: string[] },
+  ): Promise<{ items: Candidate[]; total: number; page: number; limit: number; totalPages: number }> {
+    const status = input.status as Candidate['status'] | undefined;
+    const { page, limit } = input.pagination;
+    const result = await candidateRepository.listByTenant(tenantId, {
+      page,
+      limit,
+      status,
+      skills: input.skills,
+    });
+    const totalPages = Math.max(1, Math.ceil(result.total / limit));
+    return { items: result.items, total: result.total, page, limit, totalPages };
   },
 
   async updateCandidate(id: string, tenantId: string, payload: UpdateCandidateInput, actorId?: string): Promise<Candidate> {
@@ -43,6 +60,21 @@ export const candidateService = {
       entityType: 'Candidate',
       entityId: updatedCandidate.id,
       metadata: { before: currentCandidate, after: updatedCandidate },
+    });
+    return updatedCandidate;
+  },
+
+  async updateCandidateStatus(id: string, tenantId: string, status: string, actorId?: string): Promise<Candidate> {
+    const currentCandidate = await this.getCandidateById(id, tenantId);
+    const to = status as Candidate['status'];
+    const updatedCandidate = await candidateRepository.updateByIdAndTenant(id, tenantId, { status: to });
+    await auditService.createAuditLog({
+      tenantId,
+      action: 'update',
+      actorId,
+      entityType: 'Candidate',
+      entityId: updatedCandidate.id,
+      metadata: { from: currentCandidate.status, to: updatedCandidate.status },
     });
     return updatedCandidate;
   },

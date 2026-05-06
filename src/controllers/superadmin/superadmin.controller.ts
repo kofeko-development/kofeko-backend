@@ -1,42 +1,90 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { catchAsync } from '../../common/utils/catchAsync';
-import { sendSuccess } from '../../common/utils/apiResponse';
+import { sendPaginated, sendSuccess } from '../../common/utils/apiResponse';
 import { getRequestBody } from '../../common/utils/requestBody';
-import { requireStringValue } from '../../common/utils/requestValue';
 import { superAdminService } from '../../services/superadmin/superadmin.service';
-import { CompanyRegistrationStatus } from '@prisma/client';
+import { tenantManagementService } from '../../services/superadmin/tenantManagement.service';
+import { platformAnalyticsService } from '../../services/superadmin/platformAnalytics.service';
+import { requireStringValue } from '../../common/utils/requestValue';
+import { TenantStatus } from '@prisma/client';
+import { parsePagination } from '../../common/utils/pagination';
+
+export const superAdminBootstrap = catchAsync(async (req: Request, res: Response) => {
+  const setupKey = String(req.header('x-setup-key') ?? '');
+  const payload = getRequestBody<{ email: string; password: string; firstName: string; lastName: string }>(req);
+  const result = await superAdminService.bootstrap(payload, setupKey);
+  sendSuccess(res, StatusCodes.CREATED, 'Super admin bootstrapped', result);
+});
 
 export const superAdminLogin = catchAsync(async (req: Request, res: Response) => {
-  const payload = getRequestBody<{ username: string; password: string }>(req);
-  const result = await superAdminService.login(payload.username, payload.password);
-  sendSuccess(res, StatusCodes.OK, 'Superadmin login successful', result);
+  const payload = getRequestBody<{ email: string; password: string }>(req);
+  const userAgent = req.header('user-agent') ?? undefined;
+  const ipAddress = req.ip;
+  const result = await superAdminService.login(payload.email, payload.password, userAgent, ipAddress);
+  sendSuccess(res, StatusCodes.OK, 'Super admin login successful', result);
 });
 
-export const listCompanyRequests = catchAsync(async (req: Request, res: Response) => {
+export const superAdminRefresh = catchAsync(async (req: Request, res: Response) => {
+  const payload = getRequestBody<{ refreshToken: string }>(req);
+  const result = await superAdminService.refresh(payload.refreshToken);
+  sendSuccess(res, StatusCodes.OK, 'Access token refreshed', result);
+});
+
+export const superAdminLogout = catchAsync(async (req: Request, res: Response) => {
+  const payload = getRequestBody<{ refreshToken: string }>(req);
+  await superAdminService.logout(payload.refreshToken);
+  sendSuccess(res, StatusCodes.OK, 'Logged out', null);
+});
+
+export const superAdminMe = catchAsync(async (req: Request, res: Response) => {
+  const superAdminId = req.superAdmin?.superAdminId;
+  const result = await superAdminService.me(String(superAdminId));
+  sendSuccess(res, StatusCodes.OK, 'Super admin profile fetched', result);
+});
+
+export const superAdminListTenants = catchAsync(async (req: Request, res: Response) => {
   const statusParam = req.query.status as string | undefined;
-  const allowed = ['pending', 'approved', 'rejected'];
-  const status = allowed.includes(String(statusParam)) ? (statusParam as CompanyRegistrationStatus) : undefined;
-  const result = await superAdminService.listRequests(status);
-  sendSuccess(res, StatusCodes.OK, 'Company requests fetched', result);
+  const status = statusParam ? (statusParam as TenantStatus) : undefined;
+  const search = (req.query.search as string | undefined) ?? undefined;
+  const pagination = parsePagination(req.query.page, req.query.limit);
+
+  const result = await tenantManagementService.listTenants({
+    status,
+    search,
+    page: pagination.page,
+    limit: pagination.limit,
+  });
+  sendPaginated(res, StatusCodes.OK, {
+    items: result.items,
+    total: result.total,
+    page: result.page,
+    limit: result.limit,
+  });
 });
 
-export const approveCompanyRequest = catchAsync(async (req: Request, res: Response) => {
-  const requestId = requireStringValue(req.params.id, 'id');
-  const payload = getRequestBody<{
-    tenantSlug: string;
-    adminEmail: string;
-    adminPassword: string;
-    otp: string;
-    reviewNotes?: string;
-  }>(req);
-  const result = await superAdminService.approveRequest(requestId, payload);
-  sendSuccess(res, StatusCodes.OK, 'Company request approved', result);
+export const superAdminGetTenant = catchAsync(async (req: Request, res: Response) => {
+  const id = requireStringValue(req.params.id, 'id');
+  const result = await tenantManagementService.getTenantById(id);
+  sendSuccess(res, StatusCodes.OK, 'Tenant fetched', result);
 });
 
-export const rejectCompanyRequest = catchAsync(async (req: Request, res: Response) => {
-  const requestId = requireStringValue(req.params.id, 'id');
-  const payload = getRequestBody<{ reviewNotes: string }>(req);
-  const result = await superAdminService.rejectRequest(requestId, payload.reviewNotes);
-  sendSuccess(res, StatusCodes.OK, 'Company request rejected', result);
+export const superAdminSuspendTenant = catchAsync(async (req: Request, res: Response) => {
+  const id = requireStringValue(req.params.id, 'id');
+  const payload = getRequestBody<{ reason: string }>(req);
+  const superAdminId = String(req.superAdmin?.superAdminId);
+  const result = await tenantManagementService.suspendTenant(id, payload.reason, superAdminId);
+  sendSuccess(res, StatusCodes.OK, 'Tenant suspended', result);
+});
+
+export const superAdminActivateTenant = catchAsync(async (req: Request, res: Response) => {
+  const id = requireStringValue(req.params.id, 'id');
+  const superAdminId = String(req.superAdmin?.superAdminId);
+  const result = await tenantManagementService.activateTenant(id, superAdminId);
+  sendSuccess(res, StatusCodes.OK, 'Tenant activated', result);
+});
+
+export const superAdminPlatformAnalytics = catchAsync(async (_req: Request, res: Response) => {
+  const result = await platformAnalyticsService.getPlatformSummary();
+  sendSuccess(res, StatusCodes.OK, 'Platform analytics fetched', result);
 });
