@@ -120,6 +120,10 @@ export const authService = {
       throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
+    if (user.tenant.status === 'suspended') {
+      throw new AppError('This account has been suspended. Contact support.', StatusCodes.FORBIDDEN, ERROR_CODES.TENANT_SUSPENDED);
+    }
+
     if (user.status !== UserStatus.active) {
       throw new AppError('User is not active', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
