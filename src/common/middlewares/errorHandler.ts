@@ -4,6 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import { ZodError } from 'zod';
 import { AppError } from '../errors/AppError';
 import { ERROR_CODES } from '../errors/errorCodes';
+import { logger } from '../logger/logger';
 
 export const errorHandler = (error: unknown, _req: Request, res: Response, _next: NextFunction): void => {
   let statusCode = StatusCodes.INTERNAL_SERVER_ERROR;
@@ -12,7 +13,7 @@ export const errorHandler = (error: unknown, _req: Request, res: Response, _next
   let details: unknown;
 
   // Always log full error internally
-  console.error(error);
+  logger.error({ err: error }, 'Unhandled error');
 
   if (error instanceof AppError) {
     statusCode = error.statusCode;
