@@ -14,7 +14,7 @@ Backend version: 73dc128
 | 1.4 | Login wrong password | 401 | 401 `UNAUTHORIZED` | PASS |  |
 | 1.5 | Login wrong tenant slug | 404 | 404 `NOT_FOUND` | PASS |  |
 | 1.6 | /auth/me with access token | 200 with user profile | 200, profile returned | PASS |  |
-| 1.7 | /auth/me with expired token | 401 | Not executed | PARTIAL | Requires issuing an intentionally expired access token (needs very short `JWT_ACCESS_EXPIRES_IN` + server restart or a pre-baked expired JWT). |
+| 1.7 | /auth/me with expired token | 401 | 401 `UNAUTHORIZED` (“Invalid or expired token”) | PASS | Verified using a deliberately expired JWT signed with the dev secret. |
 | 1.8 | Refresh token valid | 200 with new accessToken | 200, new access token returned | PASS |  |
 | 1.9 | Refresh invalid token | 401 | 401 `UNAUTHORIZED` | PASS |  |
 | 1.10 | Logout valid refresh token | 200 | 200 | PASS |  |
@@ -25,7 +25,7 @@ Backend version: 73dc128
 | 1.15 | Login with new password | 200 | 200, tokens returned | PASS | Password changed to `AdminA1bbbb` for this QA user |
 
 ## Issues found
-- **Expired token test (1.7) not executed** in this run (see notes above). All other cases passed.
+- None in Module 1.
 
 ## Screenshots / response samples
 
@@ -53,6 +53,6 @@ Key fields returned:
 {"success":false,"message":"Reset token has already been used","errorCode":"VALIDATION_ERROR","statusCode":400}
 ```
 
-## Verdict: PARTIAL
-Commit: `qa: auth module testing complete [partial]`
+## Verdict: PASS
+Commit: `qa: auth module testing complete [pass]`
 
