@@ -48,6 +48,21 @@ export const authenticate = async (req: Request, _res: Response, next: NextFunct
       return;
     }
 
+    const user = await prisma.user.findFirst({
+      where: { id: payload.sub, tenantId: payload.tenantId },
+      select: { status: true },
+    });
+
+    if (!user) {
+      next(new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED));
+      return;
+    }
+
+    if (user.status !== 'active') {
+      next(new AppError('User is not active', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
+      return;
+    }
+
     next();
   } catch {
     next(new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED));
