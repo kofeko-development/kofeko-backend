@@ -110,7 +110,7 @@
               { "key": "Content-Type", "value": "application/json" }
             ],
             "url": { "raw": "{{baseUrl}}/api/v1/users", "host": ["{{baseUrl}}"], "path": ["api", "v1", "users"] },
-            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Recruiter\",\n  \"lastName\": \"One\",\n  \"email\": \"recruiter1@acme.com\",\n  \"role\": \"recruiter\"\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Recruiter\",\n  \"lastName\": \"One\",\n  \"email\": \"recruiter1@acme.com\",\n  \"password\": \"RecruiterA1aaaa\",\n  \"roleName\": \"recruiter\"\n}" }
           }
         },
         {
@@ -122,7 +122,7 @@
               { "key": "Content-Type", "value": "application/json" }
             ],
             "url": { "raw": "{{baseUrl}}/api/v1/users/invite", "host": ["{{baseUrl}}"], "path": ["api", "v1", "users", "invite"] },
-            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"{{userId}}\"\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Interviewer\",\n  \"lastName\": \"One\",\n  \"email\": \"interviewer1@acme.com\",\n  \"roleName\": \"interviewer\"\n}" }
           }
         },
         {
