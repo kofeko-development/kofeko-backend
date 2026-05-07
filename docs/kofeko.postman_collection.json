@@ -167,7 +167,7 @@
               { "key": "Content-Type", "value": "application/json" }
             ],
             "url": { "raw": "{{baseUrl}}/api/v1/company", "host": ["{{baseUrl}}"], "path": ["api", "v1", "company"] },
-            "body": { "mode": "raw", "raw": "{\n  \"companyName\": \"Acme\",\n  \"industry\": \"Software\",\n  \"companySize\": \"11-50\",\n  \"companyType\": \"startup\",\n  \"foundedYear\": 2020,\n  \"companyWebsite\": \"https://acme.com\",\n  \"officialCompanyAddress\": \"HQ\",\n  \"companyLogo\": \"https://example.com/logo.png\",\n  \"shortDescription\": \"We build things.\",\n  \"termsAccepted\": true,\n  \"companyAddress\": {\"country\":\"US\",\"state\":\"CA\",\"city\":\"SF\",\"zipCode\":\"94105\",\"fullAddress\":\"...\"}\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"companyName\": \"Acme\",\n  \"industry\": \"Software\",\n  \"companySize\": \"11-50\",\n  \"companyType\": \"startup\",\n  \"foundedYear\": 2020,\n  \"companyWebsite\": \"https://acme.com\",\n  \"officialCompanyAddress\": \"HQ Address\",\n  \"companyLogo\": \"https://example.com/logo.png\",\n  \"shortDescription\": \"We build hiring tools for modern teams.\",\n  \"termsAccepted\": true,\n  \"companyAddress\": {\"country\":\"US\",\"state\":\"CA\",\"city\":\"SF\",\"zipCode\":\"94105\",\"fullAddress\":\"...\"}\n}" }
           }
         },
         {
@@ -187,7 +187,7 @@
               { "key": "Content-Type", "value": "application/json" }
             ],
             "url": { "raw": "{{baseUrl}}/api/v1/company", "host": ["{{baseUrl}}"], "path": ["api", "v1", "company"] },
-            "body": { "mode": "raw", "raw": "{\n  \"shortDescription\": \"Updated\"\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"shortDescription\": \"Updated short description for QA testing.\"\n}" }
           }
         }
       ]
