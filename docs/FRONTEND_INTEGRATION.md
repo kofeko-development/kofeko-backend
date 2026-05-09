@@ -187,7 +187,8 @@ Resume upload endpoint: `POST /api/v1/candidates/upload-resume`
 Store `url` → `candidate.resumeUrl` and `mimeType` → `candidate.resumeMimeType`.
 
 Dev mode (`STORAGE_PROVIDER=local`): `http://localhost:3000/uploads/<filename>`
-Prod mode (`STORAGE_PROVIDER=firebase`): Firebase Storage URL
+Prod mode (`STORAGE_PROVIDER=supabase`): `https://[ref].supabase.co/storage/v1/object/public/resumes/uploads/<uuid>-<filename>`
+Legacy / optional (`STORAGE_PROVIDER=firebase`): Firebase Storage URL
 
 ## 8. Pipeline Stage Transitions
 
