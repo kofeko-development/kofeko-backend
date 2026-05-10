@@ -7,6 +7,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  DIRECT_URL: z.string().min(1, 'DIRECT_URL is required'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 chars'),
   // Backwards-compatible overrides (optional)
   JWT_ACCESS_SECRET: z.string().min(16).optional(),
@@ -31,7 +32,10 @@ const envSchema = z.object({
   SMTP_FROM_NAME: z.string().default('Kofeko'),
   SMTP_FROM_EMAIL: z.string().default('no-reply@kofeko.com'),
 
-  STORAGE_PROVIDER: z.enum(['local', 'firebase']).default('local'),
+  STORAGE_PROVIDER: z.enum(['local', 'supabase', 'firebase']).default('local'),
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_STORAGE_BUCKET: z.string().optional(),
   FIREBASE_PROJECT_ID: z.string().optional(),
   FIREBASE_PRIVATE_KEY: z.string().optional(),
   FIREBASE_CLIENT_EMAIL: z.string().optional(),
@@ -88,6 +92,26 @@ if (parsed.data.STORAGE_PROVIDER === 'firebase') {
 
   if (firebaseMissing.length) {
     console.error(`Missing required Firebase env vars for STORAGE_PROVIDER=firebase: ${firebaseMissing.join(', ')}`);
+    process.exit(1);
+  }
+}
+
+if (parsed.data.STORAGE_PROVIDER === 'supabase') {
+  const supabaseMissing: string[] = [];
+  const requireSupabase = (key: string, value: unknown) => {
+    if (typeof value === 'string') {
+      if (!value.trim()) supabaseMissing.push(key);
+      return;
+    }
+    if (value == null) supabaseMissing.push(key);
+  };
+
+  requireSupabase('SUPABASE_URL', parsed.data.SUPABASE_URL);
+  requireSupabase('SUPABASE_SERVICE_ROLE_KEY', parsed.data.SUPABASE_SERVICE_ROLE_KEY);
+  requireSupabase('SUPABASE_STORAGE_BUCKET', parsed.data.SUPABASE_STORAGE_BUCKET);
+
+  if (supabaseMissing.length) {
+    console.error(`Missing required Supabase env vars for STORAGE_PROVIDER=supabase: ${supabaseMissing.join(', ')}`);
     process.exit(1);
   }
 }
