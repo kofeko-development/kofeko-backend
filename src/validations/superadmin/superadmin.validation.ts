@@ -51,3 +51,40 @@ export const superAdminSuspendTenantSchema = z.object({
     reason: z.string().min(3).max(500),
   }),
 });
+
+const tenantSlugField = z.preprocess(
+  (value) => (typeof value === 'string' ? value.trim().toLowerCase() : value),
+  z
+    .string()
+    .min(2)
+    .max(80)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, digits, and single hyphens between segments'),
+);
+
+export const superAdminCompanyRequestsQuerySchema = z.object({
+  query: z.object({
+    status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  }),
+});
+
+export const superAdminApproveCompanyRequestSchema = z.object({
+  params: z.object({
+    id: z.string().uuid(),
+  }),
+  body: z.object({
+    tenantSlug: tenantSlugField,
+    adminEmail: z.email(),
+    adminPassword: z.string().min(8).max(128),
+    otp: z.string().min(4).max(32),
+    reviewNotes: z.string().min(3).max(500).optional(),
+  }),
+});
+
+export const superAdminRejectCompanyRequestSchema = z.object({
+  params: z.object({
+    id: z.string().uuid(),
+  }),
+  body: z.object({
+    reviewNotes: z.string().min(3).max(500),
+  }),
+});

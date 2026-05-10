@@ -1,4 +1,13 @@
-import { InviteToken, PasswordResetToken, Permission, Tenant, User, UserStatus } from '@prisma/client';
+import {
+  CompanyRegistrationStatus,
+  InviteToken,
+  PasswordResetToken,
+  Permission,
+  Prisma,
+  Tenant,
+  User,
+  UserStatus,
+} from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { prisma } from '../../config/prisma';
 import { DEFAULT_ROLE_PERMISSION_MATRIX } from '../../common/constants/rolePermissionMatrix';
@@ -51,6 +60,76 @@ type CompanyRegistrationRequestInput = {
   contactEmail: string;
 };
 
+async function seedTenantRolesAndPermissions(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  permissionKeys: string[],
+): Promise<string> {
+  await tx.permission.createMany({
+    data: permissionKeys.map((key) => ({
+      tenantId,
+      key,
+    })),
+  });
+
+  const permissions = await tx.permission.findMany({
+    where: { tenantId },
+  });
+
+  const permissionByKey = new Map(permissions.map((permission) => [permission.key, permission]));
+
+  const roleByName = new Map<string, string>();
+
+  for (const [roleName, rolePermissions] of Object.entries(DEFAULT_ROLE_PERMISSION_MATRIX)) {
+    const role = await tx.role.upsert({
+      where: {
+        tenantId_name: {
+          tenantId,
+          name: roleName,
+        },
+      },
+      update: {
+        description: `Default ${roleName.replace('_', ' ')} role`,
+      },
+      create: {
+        tenantId,
+        name: roleName,
+        description: `Default ${roleName.replace('_', ' ')} role`,
+      },
+    });
+
+    roleByName.set(roleName, role.id);
+
+    const rolePermissionRows = rolePermissions
+      .map((permissionKey) => permissionByKey.get(permissionKey))
+      .filter((permission): permission is Permission => Boolean(permission))
+      .map((permission) => ({
+        tenantId,
+        roleId: role.id,
+        permissionId: permission.id,
+      }));
+
+    if (rolePermissionRows.length > 0) {
+      await tx.rolePermission.createMany({
+        data: rolePermissionRows,
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  const companyAdminRoleId = roleByName.get(ROLE_NAMES.COMPANY_ADMIN);
+
+  if (!companyAdminRoleId) {
+    throw new AppError(
+      'Default company_admin role was not created during tenant bootstrap',
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      ERROR_CODES.INTERNAL_SERVER_ERROR,
+    );
+  }
+
+  return companyAdminRoleId;
+}
+
 export const authRepository = {
   async bootstrapTenantAdmin(input: BootstrapTenantAdminInput): Promise<{ tenant: Tenant; user: User; permissions: Permission[] }> {
     return prisma.$transaction(async (tx) => {
@@ -61,67 +140,7 @@ export const authRepository = {
         },
       });
 
-      await tx.permission.createMany({
-        data: input.permissionKeys.map((key) => ({
-          tenantId: tenant.id,
-          key,
-        })),
-      });
-
-      const permissions = await tx.permission.findMany({
-        where: { tenantId: tenant.id },
-      });
-
-      const permissionByKey = new Map(permissions.map((permission) => [permission.key, permission]));
-
-      const roleByName = new Map<string, string>();
-
-      for (const [roleName, rolePermissions] of Object.entries(DEFAULT_ROLE_PERMISSION_MATRIX)) {
-        const role = await tx.role.upsert({
-          where: {
-            tenantId_name: {
-              tenantId: tenant.id,
-              name: roleName,
-            },
-          },
-          update: {
-            description: `Default ${roleName.replace('_', ' ')} role`,
-          },
-          create: {
-            tenantId: tenant.id,
-            name: roleName,
-            description: `Default ${roleName.replace('_', ' ')} role`,
-          },
-        });
-
-        roleByName.set(roleName, role.id);
-
-        const rolePermissionRows = rolePermissions
-          .map((permissionKey) => permissionByKey.get(permissionKey))
-          .filter((permission): permission is Permission => Boolean(permission))
-          .map((permission) => ({
-            tenantId: tenant.id,
-            roleId: role.id,
-            permissionId: permission.id,
-          }));
-
-        if (rolePermissionRows.length > 0) {
-          await tx.rolePermission.createMany({
-            data: rolePermissionRows,
-            skipDuplicates: true,
-          });
-        }
-      }
-
-      const companyAdminRoleId = roleByName.get(ROLE_NAMES.COMPANY_ADMIN);
-
-      if (!companyAdminRoleId) {
-        throw new AppError(
-          'Default company_admin role was not created during tenant bootstrap',
-          StatusCodes.INTERNAL_SERVER_ERROR,
-          ERROR_CODES.INTERNAL_SERVER_ERROR,
-        );
-      }
+      const companyAdminRoleId = await seedTenantRolesAndPermissions(tx, tenant.id, input.permissionKeys);
 
       const user = await tx.user.create({
         data: {
@@ -140,6 +159,10 @@ export const authRepository = {
           userId: user.id,
           roleId: companyAdminRoleId,
         },
+      });
+
+      const permissions = await tx.permission.findMany({
+        where: { tenantId: tenant.id },
       });
 
       return { tenant, user, permissions };
@@ -430,6 +453,144 @@ export const authRepository = {
         loginOtpHash: null,
         loginOtpExpiresAt: null,
       },
+    });
+  },
+
+  async listCompanyRegistrationRequests(filters?: { status?: CompanyRegistrationStatus }) {
+    return prisma.companyRegistrationRequest.findMany({
+      where: filters?.status ? { status: filters.status } : undefined,
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  async findCompanyRegistrationRequestById(id: string) {
+    return prisma.companyRegistrationRequest.findUnique({ where: { id } });
+  },
+
+  async rejectCompanyRegistrationRequest(
+    id: string,
+    input: { reviewNotes: string; reviewedBySuperAdminId: string },
+  ) {
+    const registration = await prisma.companyRegistrationRequest.findUnique({
+      where: { id },
+    });
+    if (!registration) {
+      throw new AppError('Company registration request not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+    if (registration.status !== CompanyRegistrationStatus.pending) {
+      throw new AppError('Registration request is not pending', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
+    }
+    return prisma.companyRegistrationRequest.update({
+      where: { id },
+      data: {
+        status: CompanyRegistrationStatus.rejected,
+        reviewNotes: input.reviewNotes,
+        reviewedBy: input.reviewedBySuperAdminId,
+      },
+    });
+  },
+
+  async approveCompanyRegistrationRequest(
+    requestId: string,
+    permissionKeys: string[],
+    input: {
+      tenantSlug: string;
+      adminEmail: string;
+      adminPasswordHash: string;
+      loginOtpHash: string;
+      loginOtpExpiresAt: Date;
+      reviewedBySuperAdminId: string;
+      reviewNotes?: string;
+    },
+  ): Promise<{ tenant: Tenant; user: User }> {
+    return prisma.$transaction(async (tx) => {
+      const registration = await tx.companyRegistrationRequest.findUnique({
+        where: { id: requestId },
+      });
+      if (!registration) {
+        throw new AppError('Company registration request not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+      }
+      if (registration.status !== CompanyRegistrationStatus.pending) {
+        throw new AppError('Registration request is not pending', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
+      }
+
+      const slugTaken = await tx.tenant.findUnique({
+        where: { slug: input.tenantSlug },
+      });
+      if (slugTaken) {
+        throw new AppError('Tenant slug is already taken', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
+      }
+
+      const company = await tx.company.create({
+        data: {
+          companyName: registration.companyName,
+          companyAddress: registration.companyAddress as Prisma.InputJsonValue,
+          industry: registration.industry,
+          companySize: registration.companySize,
+          companyType: registration.companyType,
+          foundedYear: registration.foundedYear,
+          companyWebsite: registration.companyWebsite,
+          officialCompanyAddress: registration.officialCompanyAddress,
+          phoneNumber: registration.phoneNumber,
+          companyLogo: registration.companyLogo,
+          shortDescription: registration.shortDescription,
+          linkedinUrl: registration.linkedinUrl,
+          twitterUrl: registration.twitterUrl,
+          termsAccepted: registration.termsAccepted,
+        },
+      });
+
+      const tenant = await tx.tenant.create({
+        data: {
+          name: registration.companyName,
+          slug: input.tenantSlug,
+          companyId: company.id,
+        },
+      });
+
+      const companyAdminRoleId = await seedTenantRolesAndPermissions(tx, tenant.id, permissionKeys);
+
+      const contact = registration.contactName.trim();
+      const spaceIdx = contact.indexOf(' ');
+      const firstName = (spaceIdx === -1 ? contact : contact.slice(0, spaceIdx)).trim() || 'Admin';
+      const lastName = (spaceIdx === -1 ? 'User' : contact.slice(spaceIdx + 1)).trim() || 'User';
+
+      const user = await tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          firstName,
+          lastName,
+          email: input.adminEmail.toLowerCase(),
+          passwordHash: input.adminPasswordHash,
+          status: UserStatus.active,
+          otpRequired: true,
+          loginOtpHash: input.loginOtpHash,
+          loginOtpExpiresAt: input.loginOtpExpiresAt,
+        },
+      });
+
+      await tx.userRole.create({
+        data: {
+          tenantId: tenant.id,
+          userId: user.id,
+          roleId: companyAdminRoleId,
+        },
+      });
+
+      await tx.companyRegistrationRequest.update({
+        where: { id: requestId },
+        data: {
+          status: CompanyRegistrationStatus.approved,
+          reviewedBy: input.reviewedBySuperAdminId,
+          reviewNotes: input.reviewNotes ?? null,
+          approvedTenantId: tenant.id,
+        },
+      });
+
+      return { tenant, user };
+    }, {
+      maxWait: 10000,
+      timeout: 30000,
     });
   },
 };

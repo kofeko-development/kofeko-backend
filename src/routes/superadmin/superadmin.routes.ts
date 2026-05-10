@@ -2,21 +2,27 @@ import { Router } from 'express';
 import {
   superAdminBootstrap,
   superAdminActivateTenant,
+  superAdminApproveCompanyRequest,
   superAdminGetTenant,
+  superAdminListCompanyRequests,
   superAdminLogin,
   superAdminListTenants,
   superAdminLogout,
   superAdminMe,
   superAdminPlatformAnalytics,
   superAdminRefresh,
+  superAdminRejectCompanyRequest,
   superAdminSuspendTenant,
 } from '../../controllers/superadmin/superadmin.controller';
 import { validateRequest } from '../../common/middlewares/validateRequest';
 import {
+  superAdminApproveCompanyRequestSchema,
   superAdminBootstrapSchema,
+  superAdminCompanyRequestsQuerySchema,
   superAdminLoginSchema,
   superAdminLogoutSchema,
   superAdminRefreshSchema,
+  superAdminRejectCompanyRequestSchema,
   superAdminSuspendTenantSchema,
   superAdminTenantIdParamSchema,
   superAdminTenantListQuerySchema,
@@ -75,6 +81,48 @@ superAdminRouter.post('/auth/logout', validateRequest(superAdminLogoutSchema), s
  *     summary: Get current super admin profile
  */
 superAdminRouter.get('/auth/me', authenticateSuperAdmin, superAdminMe);
+
+/**
+ * @openapi
+ * /api/v1/superadmin/requests:
+ *   get:
+ *     tags: [SuperAdmin]
+ *     summary: List company registration requests
+ */
+superAdminRouter.get(
+  '/requests',
+  authenticateSuperAdmin,
+  validateRequest(superAdminCompanyRequestsQuerySchema),
+  superAdminListCompanyRequests,
+);
+
+/**
+ * @openapi
+ * /api/v1/superadmin/requests/{id}/approve:
+ *   post:
+ *     tags: [SuperAdmin]
+ *     summary: Approve company registration and provision tenant
+ */
+superAdminRouter.post(
+  '/requests/:id/approve',
+  authenticateSuperAdmin,
+  validateRequest(superAdminApproveCompanyRequestSchema),
+  superAdminApproveCompanyRequest,
+);
+
+/**
+ * @openapi
+ * /api/v1/superadmin/requests/{id}/reject:
+ *   post:
+ *     tags: [SuperAdmin]
+ *     summary: Reject company registration request
+ */
+superAdminRouter.post(
+  '/requests/:id/reject',
+  authenticateSuperAdmin,
+  validateRequest(superAdminRejectCompanyRequestSchema),
+  superAdminRejectCompanyRequest,
+);
 
 /**
  * @openapi

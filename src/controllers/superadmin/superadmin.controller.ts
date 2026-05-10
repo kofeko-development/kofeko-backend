@@ -6,8 +6,9 @@ import { getRequestBody } from '../../common/utils/requestBody';
 import { superAdminService } from '../../services/superadmin/superadmin.service';
 import { tenantManagementService } from '../../services/superadmin/tenantManagement.service';
 import { platformAnalyticsService } from '../../services/superadmin/platformAnalytics.service';
+import { companyRegistrationManagementService } from '../../services/superadmin/companyRegistrationManagement.service';
 import { requireStringValue } from '../../common/utils/requestValue';
-import { TenantStatus } from '@prisma/client';
+import { CompanyRegistrationStatus, TenantStatus } from '@prisma/client';
 import { parsePagination } from '../../common/utils/pagination';
 
 export const superAdminBootstrap = catchAsync(async (req: Request, res: Response) => {
@@ -87,4 +88,38 @@ export const superAdminActivateTenant = catchAsync(async (req: Request, res: Res
 export const superAdminPlatformAnalytics = catchAsync(async (_req: Request, res: Response) => {
   const result = await platformAnalyticsService.getPlatformSummary();
   sendSuccess(res, StatusCodes.OK, 'Platform analytics fetched', result);
+});
+
+export const superAdminListCompanyRequests = catchAsync(async (req: Request, res: Response) => {
+  const statusParam = req.query.status as string | undefined;
+  const allowed: CompanyRegistrationStatus[] = ['pending', 'approved', 'rejected'];
+  const filter =
+    statusParam && allowed.includes(statusParam as CompanyRegistrationStatus)
+      ? { status: statusParam as CompanyRegistrationStatus }
+      : undefined;
+
+  const result = await companyRegistrationManagementService.listRequests(filter);
+  sendSuccess(res, StatusCodes.OK, 'Company registration requests fetched', result);
+});
+
+export const superAdminApproveCompanyRequest = catchAsync(async (req: Request, res: Response) => {
+  const id = requireStringValue(req.params.id, 'id');
+  const payload = getRequestBody<{
+    tenantSlug: string;
+    adminEmail: string;
+    adminPassword: string;
+    otp: string;
+    reviewNotes?: string;
+  }>(req);
+  const superAdminId = String(req.superAdmin?.superAdminId);
+  const result = await companyRegistrationManagementService.approveRequest(id, payload, superAdminId);
+  sendSuccess(res, StatusCodes.OK, result.message, result);
+});
+
+export const superAdminRejectCompanyRequest = catchAsync(async (req: Request, res: Response) => {
+  const id = requireStringValue(req.params.id, 'id');
+  const payload = getRequestBody<{ reviewNotes: string }>(req);
+  const superAdminId = String(req.superAdmin?.superAdminId);
+  const result = await companyRegistrationManagementService.rejectRequest(id, payload.reviewNotes, superAdminId);
+  sendSuccess(res, StatusCodes.OK, result.message, result);
 });
