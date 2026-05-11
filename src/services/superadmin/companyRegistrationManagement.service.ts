@@ -1,11 +1,12 @@
+import { StatusCodes } from 'http-status-codes';
 import { hashPassword } from '../../common/auth/password';
 import { PERMISSIONS } from '../../common/constants/permissions';
+import { AppError } from '../../common/errors/AppError';
+import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { authRepository } from '../../repositories/auth/auth.repository';
 import { sendCompanyApprovalEmail } from '../email/approval-email.service';
 
 import { CompanyRegistrationStatus } from '@prisma/client';
-
-const OTP_VALIDITY_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const companyRegistrationManagementService = {
   async listRequests(filter?: { status?: CompanyRegistrationStatus }) {
@@ -18,6 +19,9 @@ export const companyRegistrationManagementService = {
       industry: r.industry,
       contactName: r.contactName,
       contactEmail: r.contactEmail,
+      phoneNumber: r.phoneNumber ?? '',
+      adminEmail: r.adminEmail ?? '',
+      usesSignupCredentials: Boolean(r.adminPasswordHash && r.adminEmail),
       status: r.status,
       createdAt: r.createdAt.toISOString(),
     }));
@@ -25,15 +29,40 @@ export const companyRegistrationManagementService = {
 
   async approveRequest(
     requestId: string,
-    body: { tenantSlug: string; adminEmail: string; adminPassword: string; otp: string; reviewNotes?: string },
+    body: {
+      tenantSlug: string;
+      reviewNotes?: string;
+      adminEmail?: string;
+      adminPassword?: string;
+    },
     superAdminId: string,
   ) {
-    const tenantSlug = body.tenantSlug.trim().toLowerCase();
-    const adminEmailNorm = body.adminEmail.trim().toLowerCase();
+    const registration = await authRepository.findCompanyRegistrationRequestById(requestId);
+    if (!registration) {
+      throw new AppError('Company registration request not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
 
-    const adminPasswordHash = await hashPassword(body.adminPassword);
-    const loginOtpHash = await hashPassword(body.otp);
-    const loginOtpExpiresAt = new Date(Date.now() + OTP_VALIDITY_MS);
+    const tenantSlug = body.tenantSlug.trim().toLowerCase();
+
+    let adminEmailNorm: string;
+    let adminPasswordHash: string;
+
+    if (registration.adminPasswordHash && registration.adminEmail) {
+      adminEmailNorm = registration.adminEmail.trim().toLowerCase();
+      adminPasswordHash = registration.adminPasswordHash;
+    } else {
+      const email = body.adminEmail?.trim();
+      const plainPassword = body.adminPassword;
+      if (!email || !plainPassword) {
+        throw new AppError(
+          'Admin email and password are required to approve this legacy registration request.',
+          StatusCodes.BAD_REQUEST,
+          ERROR_CODES.VALIDATION_ERROR,
+        );
+      }
+      adminEmailNorm = email.toLowerCase();
+      adminPasswordHash = await hashPassword(plainPassword);
+    }
 
     const permissionKeys = Object.values(PERMISSIONS) as string[];
 
@@ -41,22 +70,19 @@ export const companyRegistrationManagementService = {
       tenantSlug,
       adminEmail: adminEmailNorm,
       adminPasswordHash,
-      loginOtpHash,
-      loginOtpExpiresAt,
       reviewedBySuperAdminId: superAdminId,
       reviewNotes: body.reviewNotes,
     });
 
-    const registration = await authRepository.findCompanyRegistrationRequestById(requestId);
-    const companyName = registration?.companyName ?? tenant.name;
+    const companyName = registration.companyName ?? tenant.name;
+    const passwordFromSignup = Boolean(registration.adminPasswordHash && registration.adminEmail);
 
     void sendCompanyApprovalEmail({
       companyName,
       toEmail: adminEmailNorm,
       tenantSlug: tenant.slug,
       username: adminEmailNorm,
-      password: body.adminPassword,
-      otp: body.otp,
+      password: passwordFromSignup ? undefined : body.adminPassword,
     }).catch(() => undefined);
 
     return {

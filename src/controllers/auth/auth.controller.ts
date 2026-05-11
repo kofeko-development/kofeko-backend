@@ -59,6 +59,24 @@ export const loginCandidate = catchAsync(async (req: Request, res: Response) => 
   sendSuccess(res, StatusCodes.OK, 'Candidate login successful', result);
 });
 
+export const loginCandidateWithGoogle = catchAsync(async (req: Request, res: Response) => {
+  const { ip, headers } = req;
+  const userAgent = optionalStringValue(headers['user-agent']);
+  const payload = getRequestBody<{ idToken: string }>(req);
+  const result = await authService.loginCandidateWithGoogle(payload, userAgent, ip);
+
+  sendSuccess(res, StatusCodes.OK, 'Candidate login successful', result);
+});
+
+export const loginCandidateWithSupabase = catchAsync(async (req: Request, res: Response) => {
+  const { ip, headers } = req;
+  const userAgent = optionalStringValue(headers['user-agent']);
+  const payload = getRequestBody<{ accessToken: string }>(req);
+  const result = await authService.loginCandidateWithSupabase(payload, userAgent, ip);
+
+  sendSuccess(res, StatusCodes.OK, 'Candidate login successful', result);
+});
+
 export const refreshToken = catchAsync(async (req: Request, res: Response) => {
   const refreshTokenInput = getRequestBody<RefreshTokenInput>(req);
   const result = await authService.refreshToken(refreshTokenInput);

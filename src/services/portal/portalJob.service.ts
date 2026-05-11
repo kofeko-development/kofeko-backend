@@ -12,6 +12,57 @@ const resolveTenantBySlug = async (tenantSlug: string) => {
 };
 
 export const portalJobService = {
+  async listAllOpenJobs(input: { search?: string; page: number; limit: number }) {
+    const skip = (input.page - 1) * input.limit;
+
+    const where = {
+      status: 'open' as const,
+      ...(input.search
+        ? {
+            OR: [
+              { title: { contains: input.search, mode: 'insensitive' as const } },
+              { description: { contains: input.search, mode: 'insensitive' as const } },
+              { tenant: { name: { contains: input.search, mode: 'insensitive' as const } } },
+              { tenant: { slug: { contains: input.search, mode: 'insensitive' as const } } },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, items] = await Promise.all([
+      prisma.job.count({ where }),
+      prisma.job.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: input.limit,
+        select: {
+          id: true,
+          title: true,
+          department: true,
+          description: true,
+          location: true,
+          employmentType: true,
+          createdAt: true,
+          tenant: {
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      items,
+      total,
+      page: input.page,
+      limit: input.limit,
+      totalPages: Math.max(1, Math.ceil(total / input.limit)),
+    };
+  },
   async listOpenJobs(
     tenantSlug: string,
     input: { department?: string; search?: string; page: number; limit: number },
@@ -82,6 +133,40 @@ export const portalJobService = {
         experienceMax: true,
         hiringPriority: true,
         createdAt: true,
+      },
+    });
+
+    if (!job) {
+      throw new AppError('Job not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    return job;
+  },
+
+  async getAnyOpenJobById(jobId: string) {
+    const job = await prisma.job.findFirst({
+      where: { id: jobId, status: 'open' as const },
+      select: {
+        id: true,
+        title: true,
+        department: true,
+        description: true,
+        location: true,
+        employmentType: true,
+        requirements: true,
+        niceToHave: true,
+        screeningQuestions: true,
+        experienceMin: true,
+        experienceMax: true,
+        hiringPriority: true,
+        createdAt: true,
+        tenant: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
       },
     });
 

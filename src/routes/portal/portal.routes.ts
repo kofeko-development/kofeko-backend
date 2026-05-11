@@ -6,6 +6,8 @@ import {
   candidateRefreshSchema,
   candidateRegisterSchema,
   myApplicationsQuerySchema,
+  portalAllJobsQuerySchema,
+  portalAnyJobIdParamSchema,
   portalJobIdParamSchema,
   portalJobsQuerySchema,
   portalPipelineIdParamSchema,
@@ -13,7 +15,9 @@ import {
 } from '../../validations/portal/portal.validation';
 import {
   portalApplyToJob,
+  portalGetAnyJob,
   portalGetJob,
+  portalListAllJobs,
   portalListJobs,
   portalLoginCandidate,
   portalMe,
@@ -59,6 +63,26 @@ portalRouter.post('/auth/loginCandidate', validateRequest(candidateLoginSchema),
 portalRouter.post('/auth/refresh', validateRequest(candidateRefreshSchema), portalRefresh);
 
 // Jobs (public)
+/**
+ * @openapi
+ * /api/v1/portal/jobs:
+ *   get:
+ *     tags: [Portal]
+ *     summary: List open jobs across all companies
+ *     security: []
+ */
+portalRouter.get('/jobs', validateRequest(portalAllJobsQuerySchema), portalListAllJobs);
+
+/**
+ * @openapi
+ * /api/v1/portal/jobs/{jobId}:
+ *   get:
+ *     tags: [Portal]
+ *     summary: Get single open job by id
+ *     security: []
+ */
+portalRouter.get('/jobs/:jobId', validateRequest(portalAnyJobIdParamSchema), portalGetAnyJob);
+
 /**
  * @openapi
  * /api/v1/portal/{tenantSlug}/jobs:

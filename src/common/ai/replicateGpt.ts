@@ -56,16 +56,98 @@ export async function replicateGpt52JsonCompletion(input: {
     Math.max(1024, Number(process.env.REPLICATE_MAX_COMPLETION_TOKENS) || 16_384)
   );
 
-  const output = await replicate.run(model as ReplicateModelId, {
-    input: {
-      messages,
-      reasoning_effort: reasoningEffort,
-      verbosity,
-      max_completion_tokens: maxCompletionTokens,
-    },
-  });
+  let output: unknown;
+  try {
+    output = await replicate.run(model as ReplicateModelId, {
+      input: {
+        messages,
+        reasoning_effort: reasoningEffort,
+        verbosity,
+        max_completion_tokens: maxCompletionTokens,
+      },
+    });
+  } catch (err) {
+    throw mapReplicateError(err);
+  }
 
   return await flattenReplicateOutput(output);
+}
+
+export async function replicateGpt52TextCompletion(input: {
+  system: string;
+  user: string;
+}): Promise<string> {
+  const replicate = new Replicate({ auth: getToken() });
+  const model = getModelRef();
+
+  const messages = [
+    { role: 'system' as const, content: input.system },
+    { role: 'user' as const, content: input.user },
+  ];
+
+  const reasoningEffort =
+    (process.env.REPLICATE_REASONING_EFFORT?.trim() as
+      | 'none'
+      | 'low'
+      | 'medium'
+      | 'high'
+      | 'xhigh'
+      | undefined) || 'low';
+
+  const verbosity =
+    (process.env.REPLICATE_VERBOSITY?.trim() as 'low' | 'medium' | 'high' | undefined) || 'low';
+
+  const maxCompletionTokens = Math.min(
+    128_000,
+    Math.max(1024, Number(process.env.REPLICATE_MAX_COMPLETION_TOKENS) || 16_384),
+  );
+
+  let output: unknown;
+  try {
+    output = await replicate.run(model as ReplicateModelId, {
+      input: {
+        messages,
+        reasoning_effort: reasoningEffort,
+        verbosity,
+        max_completion_tokens: maxCompletionTokens,
+      },
+    });
+  } catch (err) {
+    throw mapReplicateError(err);
+  }
+
+  return await flattenReplicateOutput(output);
+}
+
+function mapReplicateError(err: unknown): AppError {
+  const anyErr = err as any;
+  const status: number | undefined =
+    typeof anyErr?.status === 'number'
+      ? anyErr.status
+      : typeof anyErr?.response?.status === 'number'
+        ? anyErr.response.status
+        : undefined;
+
+  const detail =
+    typeof anyErr?.message === 'string'
+      ? anyErr.message
+      : typeof anyErr?.response?.statusText === 'string'
+        ? anyErr.response.statusText
+        : 'Unknown error';
+
+  if (status === StatusCodes.PAYMENT_REQUIRED) {
+    throw new AppError(
+      `AI provider requires payment/credits. Please add credits in Replicate billing and try again.\n\n${detail}`,
+      StatusCodes.PAYMENT_REQUIRED,
+      ERROR_CODES.AI_PAYMENT_REQUIRED,
+    );
+  }
+
+  throw new AppError(
+    `AI provider request failed. Please try again.\n\n${detail}`,
+    StatusCodes.BAD_GATEWAY,
+    ERROR_CODES.AI_EVALUATION_FAILED,
+  );
 }
 
 async function flattenReplicateOutput(output: unknown): Promise<string> {

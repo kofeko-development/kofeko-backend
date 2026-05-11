@@ -6,8 +6,8 @@ type SendApprovalEmailInput = {
   toEmail: string;
   tenantSlug: string;
   username: string;
-  password: string;
-  otp: string;
+  /** Omitted when the admin chose their password at registration (not echoed by email). */
+  password?: string;
 };
 
 const getTransporter = () => {
@@ -44,12 +44,14 @@ export const sendCompanyApprovalEmail = async (input: SendApprovalEmailInput): P
         <p style="margin: 6px 0;"><strong>Login URL:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
         <p style="margin: 6px 0;"><strong>Tenant Slug:</strong> ${input.tenantSlug}</p>
         <p style="margin: 6px 0;"><strong>Username (Email):</strong> ${input.username}</p>
-        <p style="margin: 6px 0;"><strong>Password:</strong> ${input.password}</p>
-        <p style="margin: 6px 0;"><strong>One-Time OTP:</strong> ${input.otp}</p>
+        ${
+          input.password
+            ? `<p style="margin: 6px 0;"><strong>Password:</strong> ${input.password}</p>`
+            : `<p style="margin: 6px 0;"><strong>Password:</strong> Use the password you created when you submitted your company registration.</p>`
+        }
       </div>
 
-      <p><strong>Important:</strong> OTP is required for your first login only.</p>
-      <p>After your first successful login, the OTP requirement is removed automatically.</p>
+      <p>Sign in with your email and password using the tenant slug above.</p>
       <p style="margin-top: 24px;">Thanks,<br/>Kofeko Team</p>
     </div>
   `;

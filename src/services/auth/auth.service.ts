@@ -1,5 +1,6 @@
 import { UserStatus } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
+import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
 import { comparePassword, hashPassword } from '../../common/auth/password';
 import { createTokenHash } from '../../common/auth/tokenHash';
@@ -10,6 +11,8 @@ import { sendEmail } from '../../common/email/emailProvider';
 import { passwordResetEmailTemplate } from '../../common/email/templates/passwordResetEmail';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
+import { getFirebaseAdmin } from '../../common/firebase/firebaseAdmin';
+import { getSupabaseAdmin } from '../../common/supabase/supabaseAdmin';
 import { authRepository } from '../../repositories/auth/auth.repository';
 import {
   AcceptInviteInput,
@@ -65,7 +68,14 @@ const getRefreshExpiryDate = (): Date => {
 
 export const authService = {
   async registerCompanyRequest(payload: RegisterCompanyRequestInput) {
-    const request = await authRepository.createCompanyRegistrationRequest(payload);
+    const adminPasswordHash = await hashPassword(payload.password);
+    const adminEmail = payload.adminEmail.trim().toLowerCase();
+    const { password: _password, ...rest } = payload;
+    const request = await authRepository.createCompanyRegistrationRequest({
+      ...rest,
+      adminEmail,
+      adminPasswordHash,
+    });
 
     return {
       requestId: request.id,
@@ -114,7 +124,23 @@ export const authService = {
   },
 
   async login(payload: LoginInput, userAgent?: string, ipAddress?: string) {
-    const user = await authRepository.findUserByTenantSlugAndEmail(payload.tenantSlug, payload.email);
+    const email = payload.email.trim().toLowerCase();
+    const candidateTenantSlug = process.env.CANDIDATE_TENANT_SLUG ?? 'kofeko-candidates';
+
+    const user = payload.tenantSlug
+      ? await authRepository.findUserByTenantSlugAndEmail(payload.tenantSlug, email)
+      : await (async () => {
+          const users = await authRepository.findStaffUsersByEmailForLogin(email, { excludeTenantSlug: candidateTenantSlug });
+          if (users.length === 1) return users[0];
+          if (users.length > 1) {
+            throw new AppError(
+              'Multiple accounts found for this email. Please contact support.',
+              StatusCodes.CONFLICT,
+              ERROR_CODES.CONFLICT,
+            );
+          }
+          return null;
+        })();
 
     if (!user) {
       throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
@@ -124,7 +150,7 @@ export const authService = {
       throw new AppError('This account has been suspended. Contact support.', StatusCodes.FORBIDDEN, ERROR_CODES.TENANT_SUSPENDED);
     }
 
-    if (user.status !== UserStatus.active) {
+    if (user.status !== UserStatus.active && user.status !== UserStatus.invited) {
       throw new AppError('User is not active', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
 
@@ -135,17 +161,15 @@ export const authService = {
     }
 
     if (user.otpRequired) {
-      if (!payload.otp) {
-        throw new AppError('OTP is required for first login', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
-      }
-      if (!user.loginOtpHash || !user.loginOtpExpiresAt || user.loginOtpExpiresAt < new Date()) {
-        throw new AppError('OTP expired. Please contact super admin.', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
-      }
-      const isOtpValid = await comparePassword(payload.otp, user.loginOtpHash);
-      if (!isOtpValid) {
-        throw new AppError('Invalid OTP', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
-      }
       await authRepository.consumeLoginOtp(user.id, user.tenantId);
+    }
+
+    if (user.status === UserStatus.invited) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { status: UserStatus.active },
+      });
+      user.status = UserStatus.active;
     }
 
     const tokenPayload = {
@@ -234,6 +258,150 @@ export const authService = {
     const isPasswordValid = await comparePassword(payload.password, user.passwordHash);
     if (!isPasswordValid) {
       throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const tokenPayload = {
+      sub: user.id,
+      tenantId: user.tenantId,
+      email: user.email,
+    };
+    const accessToken = signAccessToken(tokenPayload);
+    const refreshToken = signRefreshToken(tokenPayload);
+
+    await authRepository.createSession({
+      tenantId: user.tenantId,
+      userId: user.id,
+      refreshTokenHash: createTokenHash(refreshToken),
+      userAgent,
+      ipAddress,
+      expiresAt: getRefreshExpiryDate(),
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: formatAuthUser(user),
+      tenant: user.tenant,
+    };
+  },
+
+  async loginCandidateWithGoogle(payload: { idToken: string }, userAgent?: string, ipAddress?: string) {
+    const candidateTenantSlug = process.env.CANDIDATE_TENANT_SLUG ?? 'kofeko-candidates';
+    const candidateTenantName = process.env.CANDIDATE_TENANT_NAME ?? 'Kofeko Candidates';
+
+    const admin = getFirebaseAdmin();
+    const decoded = await admin.auth().verifyIdToken(payload.idToken);
+
+    const email = decoded.email;
+    if (!email) {
+      throw new AppError('Google account has no email', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const displayName = String(decoded.name ?? '').trim();
+    const nameParts = displayName.split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] ?? 'Candidate';
+    const lastName = nameParts.slice(1).join(' ') || 'Candidate';
+
+    let user = await authRepository.findUserByTenantSlugAndEmail(candidateTenantSlug, email);
+
+    if (!user) {
+      const { randomBytes } = await import('node:crypto');
+      const randomPassword = randomBytes(24).toString('hex');
+      const passwordHash = await hashPassword(randomPassword);
+
+      const { tenant, user: createdUser } = await authRepository.bootstrapCandidateUser({
+        tenantSlug: candidateTenantSlug,
+        tenantName: candidateTenantName,
+        firstName,
+        lastName,
+        email,
+        passwordHash,
+        permissionKeys: Object.values(PERMISSIONS),
+      });
+
+      const hydrated = await authRepository.findUserByIdAndTenant(createdUser.id, tenant.id);
+      if (!hydrated) {
+        throw new AppError('User not found after registration', StatusCodes.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
+      }
+      user = hydrated;
+    }
+
+    if (user.status !== UserStatus.active) {
+      throw new AppError('User is not active', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
+    }
+
+    const tokenPayload = {
+      sub: user.id,
+      tenantId: user.tenantId,
+      email: user.email,
+    };
+    const accessToken = signAccessToken(tokenPayload);
+    const refreshToken = signRefreshToken(tokenPayload);
+
+    await authRepository.createSession({
+      tenantId: user.tenantId,
+      userId: user.id,
+      refreshTokenHash: createTokenHash(refreshToken),
+      userAgent,
+      ipAddress,
+      expiresAt: getRefreshExpiryDate(),
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: formatAuthUser(user),
+      tenant: user.tenant,
+    };
+  },
+
+  async loginCandidateWithSupabase(payload: { accessToken: string }, userAgent?: string, ipAddress?: string) {
+    const candidateTenantSlug = process.env.CANDIDATE_TENANT_SLUG ?? 'kofeko-candidates';
+    const candidateTenantName = process.env.CANDIDATE_TENANT_NAME ?? 'Kofeko Candidates';
+
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase.auth.getUser(payload.accessToken);
+    if (error || !data.user) {
+      throw new AppError('Invalid Supabase token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const email = data.user.email;
+    if (!email) {
+      throw new AppError('Supabase user has no email', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const meta = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+    const fullName = String(meta.full_name ?? meta.name ?? '').trim();
+    const nameParts = fullName.split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] ?? 'Candidate';
+    const lastName = nameParts.slice(1).join(' ') || 'Candidate';
+
+    let user = await authRepository.findUserByTenantSlugAndEmail(candidateTenantSlug, email);
+
+    if (!user) {
+      const { randomBytes } = await import('node:crypto');
+      const randomPassword = randomBytes(24).toString('hex');
+      const passwordHash = await hashPassword(randomPassword);
+
+      const { tenant, user: createdUser } = await authRepository.bootstrapCandidateUser({
+        tenantSlug: candidateTenantSlug,
+        tenantName: candidateTenantName,
+        firstName,
+        lastName,
+        email,
+        passwordHash,
+        permissionKeys: Object.values(PERMISSIONS),
+      });
+
+      const hydrated = await authRepository.findUserByIdAndTenant(createdUser.id, tenant.id);
+      if (!hydrated) {
+        throw new AppError('User not found after registration', StatusCodes.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
+      }
+      user = hydrated;
+    }
+
+    if (user.status !== UserStatus.active) {
+      throw new AppError('User is not active', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
 
     const tokenPayload = {

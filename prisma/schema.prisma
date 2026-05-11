@@ -362,6 +362,7 @@ model Evaluation {
   sectionScores  Json?
   skillMatches   Json?
   parsedResumeData Json?
+  hiringIntelligence Json?
   evaluatedBy    String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -439,6 +440,10 @@ model CompanyRegistrationRequest {
   termsAccepted          Boolean
   contactName            String
   contactEmail           String
+  /// Login email chosen at signup (optional for legacy rows before credentials-on-signup).
+  adminEmail             String?
+  /// bcrypt hash of password chosen at signup (optional for legacy rows).
+  adminPasswordHash      String?
   status                 CompanyRegistrationStatus @default(pending)
   reviewedBy             String?
   reviewNotes            String?

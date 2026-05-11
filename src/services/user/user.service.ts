@@ -6,6 +6,7 @@ import { hashPassword } from '../../common/auth/password';
 import { createTokenHash } from '../../common/auth/tokenHash';
 import { generateInviteToken, getInviteTokenExpiryDate } from '../../common/auth/inviteToken';
 import { ROLE_NAMES } from '../../common/constants/roles';
+import { prisma } from '../../config/prisma';
 import { sendEmail } from '../../common/email/emailProvider';
 import { inviteEmailTemplate } from '../../common/email/templates/inviteEmail';
 import { AppError } from '../../common/errors/AppError';
@@ -80,6 +81,12 @@ export const userService = {
     });
 
     const inviteLink = `${env.APP_FRONTEND_URL}/accept-invite?token=${rawToken}`;
+    const loginUrl = `${env.APP_FRONTEND_URL.replace(/\/$/, '')}/login`;
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: payload.tenantId },
+      select: { name: true, slug: true },
+    });
 
     await sendEmail({
       to: user.email,
@@ -87,6 +94,12 @@ export const userService = {
       html: inviteEmailTemplate({
         inviteLink,
         invitedUserName: `${user.firstName} ${user.lastName}`.trim(),
+        inviteeEmail: user.email,
+        tenantName: tenant?.name,
+        tenantSlug: tenant?.slug,
+        loginUrl,
+        temporaryPassword,
+        position: payload.position,
       }),
     });
 
@@ -99,6 +112,7 @@ export const userService = {
       metadata: {
         email: user.email,
         roleName,
+        position: payload.position,
       },
     });
 

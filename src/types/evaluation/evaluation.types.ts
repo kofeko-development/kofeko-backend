@@ -14,6 +14,7 @@ export type CreateEvaluationInput = {
   sectionScores?: Prisma.InputJsonValue;
   skillMatches?: Prisma.InputJsonValue;
   parsedResumeData?: Prisma.InputJsonValue;
+  hiringIntelligence?: Prisma.InputJsonValue;
   evaluatedBy?: string;
 };
 

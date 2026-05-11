@@ -18,6 +18,7 @@ export type InviteUserInput = {
   lastName: string;
   email: string;
   roleName?: RoleNameValue;
+  position?: string;
 };
 
 export type UpdateUserInput = Partial<{

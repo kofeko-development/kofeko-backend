@@ -133,6 +133,7 @@ export const evaluationService = {
       sectionScores: result.scores.sections,
       skillMatches: result.scores.skillMatches,
       parsedResumeData: result.parsedResume,
+      hiringIntelligence: result.hiringIntelligence,
       aiGenerated: true,
       evaluatedBy: actorId,
     });

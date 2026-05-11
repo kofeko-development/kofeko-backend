@@ -28,6 +28,20 @@ export const superAdminLogoutSchema = z.object({
   }),
 });
 
+const superAdminUpdateProfileBodySchema = z
+  .object({
+    currentPassword: z.string().min(1),
+    email: z.email().optional(),
+    newPassword: z.string().min(8).max(128).optional(),
+  })
+  .refine((d) => Boolean(d.email?.trim()) || d.newPassword !== undefined, {
+    message: 'Provide email and/or newPassword',
+  });
+
+export const superAdminUpdateProfileSchema = z.object({
+  body: superAdminUpdateProfileBodySchema,
+});
+
 export const superAdminTenantListQuerySchema = z.object({
   query: z.object({
     status: z.enum(['active', 'suspended', 'pending']).optional(),
@@ -73,9 +87,9 @@ export const superAdminApproveCompanyRequestSchema = z.object({
   }),
   body: z.object({
     tenantSlug: tenantSlugField,
-    adminEmail: z.email(),
-    adminPassword: z.string().min(8).max(128),
-    otp: z.string().min(4).max(32),
+    /** Required only for legacy requests created before signup collected admin credentials. */
+    adminEmail: z.email().optional(),
+    adminPassword: z.string().min(8).max(128).optional(),
     reviewNotes: z.string().min(3).max(500).optional(),
   }),
 });

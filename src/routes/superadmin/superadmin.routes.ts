@@ -9,6 +9,7 @@ import {
   superAdminListTenants,
   superAdminLogout,
   superAdminMe,
+  superAdminUpdateProfile,
   superAdminPlatformAnalytics,
   superAdminRefresh,
   superAdminRejectCompanyRequest,
@@ -22,6 +23,7 @@ import {
   superAdminLoginSchema,
   superAdminLogoutSchema,
   superAdminRefreshSchema,
+  superAdminUpdateProfileSchema,
   superAdminRejectCompanyRequestSchema,
   superAdminSuspendTenantSchema,
   superAdminTenantIdParamSchema,
@@ -81,6 +83,13 @@ superAdminRouter.post('/auth/logout', validateRequest(superAdminLogoutSchema), s
  *     summary: Get current super admin profile
  */
 superAdminRouter.get('/auth/me', authenticateSuperAdmin, superAdminMe);
+
+superAdminRouter.patch(
+  '/auth/me',
+  authenticateSuperAdmin,
+  validateRequest(superAdminUpdateProfileSchema),
+  superAdminUpdateProfile,
+);
 
 /**
  * @openapi

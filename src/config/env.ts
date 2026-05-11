@@ -3,6 +3,11 @@ import { z } from 'zod';
 
 dotenv.config();
 
+// Prisma `directUrl` expects DIRECT_URL; for local Postgres use the same URI as DATABASE_URL.
+if (!process.env.DIRECT_URL?.trim() && process.env.DATABASE_URL) {
+  process.env.DIRECT_URL = process.env.DATABASE_URL;
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -91,8 +96,13 @@ if (parsed.data.STORAGE_PROVIDER === 'firebase') {
   requireFirebase('FIREBASE_STORAGE_BUCKET', parsed.data.FIREBASE_STORAGE_BUCKET);
 
   if (firebaseMissing.length) {
-    console.error(`Missing required Firebase env vars for STORAGE_PROVIDER=firebase: ${firebaseMissing.join(', ')}`);
-    process.exit(1);
+    if (parsed.data.NODE_ENV === 'production') {
+      console.error(`Missing required Firebase env vars for STORAGE_PROVIDER=firebase: ${firebaseMissing.join(', ')}`);
+      process.exit(1);
+    }
+    console.warn(
+      `[env] STORAGE_PROVIDER=firebase but missing: ${firebaseMissing.join(', ')} — file uploads will fail until these are set.`,
+    );
   }
 }
 

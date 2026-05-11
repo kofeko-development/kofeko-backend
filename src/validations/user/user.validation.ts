@@ -17,6 +17,8 @@ export const inviteUserSchema = z.object({
     lastName: z.string().min(1).max(80),
     email: z.email(),
     roleName: z.enum([ROLE_NAMES.COMPANY_ADMIN, ROLE_NAMES.HR_MANAGER, ROLE_NAMES.RECRUITER, ROLE_NAMES.INTERVIEWER]).optional(),
+    /** Job title / role at the company (stored on invite audit only; included in welcome email). */
+    position: z.string().min(1).max(120).optional(),
   }),
 });
 

@@ -14,6 +14,7 @@ import tenantRoutes from './tenant/tenant.routes';
 import userRoutes from './user/user.routes';
 import superAdminRoutes from './superadmin/superadmin.routes';
 import portalRoutes from './portal/portal.routes';
+import aiRoutes from './ai/ai.routes';
 
 const router = Router();
 
@@ -32,5 +33,6 @@ router.use('/analytics', analyticsRoutes);
 router.use('/audit', auditRoutes);
 router.use('/superadmin', superAdminRoutes);
 router.use('/portal', portalRoutes);
+router.use('/ai', aiRoutes);
 
 export default router;

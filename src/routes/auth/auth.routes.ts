@@ -3,6 +3,8 @@ import {
   acceptInvite,
   forgotPassword,
   loginCandidate,
+  loginCandidateWithGoogle,
+  loginCandidateWithSupabase,
   login,
   logout,
   me,
@@ -18,6 +20,8 @@ import {
   acceptInviteSchema,
   forgotPasswordSchema,
   loginCandidateSchema,
+  loginCandidateGoogleSchema,
+  loginCandidateSupabaseSchema,
   loginSchema,
   logoutSchema,
   refreshSchema,
@@ -78,6 +82,26 @@ authRouter.post('/register-candidate', validateRequest(registerCandidateSchema),
  *     security: []
  */
 authRouter.post('/login-candidate', validateRequest(loginCandidateSchema), loginCandidate);
+
+/**
+ * @openapi
+ * /api/v1/auth/login-candidate-google:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Candidate login/signup with Google (Firebase)
+ *     security: []
+ */
+authRouter.post('/login-candidate-google', validateRequest(loginCandidateGoogleSchema), loginCandidateWithGoogle);
+
+/**
+ * @openapi
+ * /api/v1/auth/login-candidate-supabase:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Candidate login/signup with Supabase Auth (email/password)
+ *     security: []
+ */
+authRouter.post('/login-candidate-supabase', validateRequest(loginCandidateSupabaseSchema), loginCandidateWithSupabase);
 
 /**
  * @openapi

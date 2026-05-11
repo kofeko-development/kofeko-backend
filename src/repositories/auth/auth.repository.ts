@@ -56,8 +56,10 @@ type CompanyRegistrationRequestInput = {
   linkedinUrl?: string;
   twitterUrl?: string;
   termsAccepted: true;
-  contactName: string;
-  contactEmail: string;
+  contactName?: string;
+  contactEmail?: string;
+  adminEmail: string;
+  adminPasswordHash: string;
 };
 
 async function seedTenantRolesAndPermissions(
@@ -274,8 +276,10 @@ export const authRepository = {
         linkedinUrl: input.linkedinUrl,
         twitterUrl: input.twitterUrl,
         termsAccepted: input.termsAccepted,
-        contactName: input.contactName,
-        contactEmail: input.contactEmail,
+        contactName: input.contactName?.trim() || 'Company Admin',
+        contactEmail: input.contactEmail?.trim() ?? '',
+        adminEmail: input.adminEmail,
+        adminPasswordHash: input.adminPasswordHash,
       },
     });
   },
@@ -304,6 +308,42 @@ export const authRepository = {
           },
         },
       },
+    });
+  },
+
+  async findStaffUsersByEmailForLogin(
+    email: string,
+    options?: { excludeTenantSlug?: string },
+  ): Promise<(User & { tenant: Tenant })[]> {
+    const excludeTenantSlug = options?.excludeTenantSlug?.trim();
+    return prisma.user.findMany({
+      where: {
+        email,
+        ...(excludeTenantSlug
+          ? {
+              tenant: {
+                slug: { not: excludeTenantSlug },
+              },
+            }
+          : {}),
+      },
+      include: {
+        tenant: true,
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   },
 
@@ -497,8 +537,6 @@ export const authRepository = {
       tenantSlug: string;
       adminEmail: string;
       adminPasswordHash: string;
-      loginOtpHash: string;
-      loginOtpExpiresAt: Date;
       reviewedBySuperAdminId: string;
       reviewNotes?: string;
     },
@@ -563,9 +601,9 @@ export const authRepository = {
           email: input.adminEmail.toLowerCase(),
           passwordHash: input.adminPasswordHash,
           status: UserStatus.active,
-          otpRequired: true,
-          loginOtpHash: input.loginOtpHash,
-          loginOtpExpiresAt: input.loginOtpExpiresAt,
+          otpRequired: false,
+          loginOtpHash: null,
+          loginOtpExpiresAt: null,
         },
       });
 

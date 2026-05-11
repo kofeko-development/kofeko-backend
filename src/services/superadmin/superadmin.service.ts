@@ -142,4 +142,59 @@ export const superAdminService = {
     }
     return sanitizeSuperAdmin(admin);
   },
+
+  /** Update login email and/or password; requires current password. Revokes all sessions when password changes. */
+  async updateProfile(
+    superAdminId: string,
+    input: { currentPassword: string; email?: string; newPassword?: string },
+  ) {
+    if (!input.email?.trim() && !input.newPassword) {
+      throw new AppError(
+        'Provide at least one of email or newPassword',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+
+    const admin = await prisma.superAdmin.findUnique({ where: { id: superAdminId } });
+    if (!admin) {
+      throw new AppError('Super admin not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    const currentOk = await comparePassword(input.currentPassword, admin.passwordHash);
+    if (!currentOk) {
+      throw new AppError('Current password is incorrect', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const nextEmail = input.email?.trim().toLowerCase();
+    if (nextEmail && nextEmail !== admin.email) {
+      const taken = await prisma.superAdmin.findUnique({ where: { email: nextEmail } });
+      if (taken) {
+        throw new AppError('Email is already in use', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
+      }
+    }
+
+    const data: { email?: string; passwordHash?: string } = {};
+    if (nextEmail && nextEmail !== admin.email) {
+      data.email = nextEmail;
+    }
+    if (input.newPassword) {
+      data.passwordHash = await hashPassword(input.newPassword);
+    }
+
+    if (Object.keys(data).length === 0) {
+      return sanitizeSuperAdmin(admin);
+    }
+
+    const updated = await prisma.superAdmin.update({
+      where: { id: superAdminId },
+      data,
+    });
+
+    if (input.newPassword) {
+      await prisma.superAdminSession.deleteMany({ where: { superAdminId } });
+    }
+
+    return sanitizeSuperAdmin(updated);
+  },
 };

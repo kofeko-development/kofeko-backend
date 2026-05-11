@@ -63,10 +63,32 @@ export const portalListJobs = catchAsync(async (req: Request, res: Response) => 
   });
 });
 
+export const portalListAllJobs = catchAsync(async (req: Request, res: Response) => {
+  const search = (req.query.search as string | undefined) ?? undefined;
+  const pagination = parsePagination(req.query.page, req.query.limit);
+  const result = await portalJobService.listAllOpenJobs({
+    search,
+    page: pagination.page,
+    limit: pagination.limit,
+  });
+  sendPaginated(res, StatusCodes.OK, {
+    items: result.items,
+    total: result.total,
+    page: result.page,
+    limit: result.limit,
+  });
+});
+
 export const portalGetJob = catchAsync(async (req: Request, res: Response) => {
   const tenantSlug = requireStringValue(req.params.tenantSlug, 'tenantSlug');
   const jobId = requireStringValue(req.params.jobId, 'jobId');
   const result = await portalJobService.getOpenJobById(tenantSlug, jobId);
+  sendSuccess(res, StatusCodes.OK, 'Job fetched', result);
+});
+
+export const portalGetAnyJob = catchAsync(async (req: Request, res: Response) => {
+  const jobId = requireStringValue(req.params.jobId, 'jobId');
+  const result = await portalJobService.getAnyOpenJobById(jobId);
   sendSuccess(res, StatusCodes.OK, 'Job fetched', result);
 });
 

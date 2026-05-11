@@ -28,8 +28,11 @@ export type RegisterCompanyRequestInput = {
   linkedinUrl?: string;
   twitterUrl?: string;
   termsAccepted: true;
-  contactName: string;
-  contactEmail: string;
+  contactName?: string;
+  contactEmail?: string;
+  /** Company admin login email (used after approval with the chosen password). */
+  adminEmail: string;
+  password: string;
 };
 
 export type RegisterCandidateInput = {
@@ -40,10 +43,9 @@ export type RegisterCandidateInput = {
 };
 
 export type LoginInput = {
-  tenantSlug: string;
+  tenantSlug?: string;
   email: string;
   password: string;
-  otp?: string;
 };
 
 export type LoginCandidateInput = {

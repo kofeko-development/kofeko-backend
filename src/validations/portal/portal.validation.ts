@@ -49,9 +49,23 @@ export const portalJobsQuerySchema = z.object({
   }),
 });
 
+export const portalAllJobsQuerySchema = z.object({
+  query: z.object({
+    search: z.string().min(1).max(100).optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  }),
+});
+
 export const portalJobIdParamSchema = z.object({
   params: z.object({
     tenantSlug: z.string().min(2).max(60).regex(/^[a-z0-9-]+$/),
+    jobId: z.string().uuid(),
+  }),
+});
+
+export const portalAnyJobIdParamSchema = z.object({
+  params: z.object({
     jobId: z.string().uuid(),
   }),
 });

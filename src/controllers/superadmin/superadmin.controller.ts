@@ -44,6 +44,13 @@ export const superAdminMe = catchAsync(async (req: Request, res: Response) => {
   sendSuccess(res, StatusCodes.OK, 'Super admin profile fetched', result);
 });
 
+export const superAdminUpdateProfile = catchAsync(async (req: Request, res: Response) => {
+  const superAdminId = String(req.superAdmin?.superAdminId);
+  const payload = getRequestBody<{ currentPassword: string; email?: string; newPassword?: string }>(req);
+  const result = await superAdminService.updateProfile(superAdminId, payload);
+  sendSuccess(res, StatusCodes.OK, 'Super admin profile updated', result);
+});
+
 export const superAdminListTenants = catchAsync(async (req: Request, res: Response) => {
   const statusParam = req.query.status as string | undefined;
   const status = statusParam ? (statusParam as TenantStatus) : undefined;
@@ -106,10 +113,9 @@ export const superAdminApproveCompanyRequest = catchAsync(async (req: Request, r
   const id = requireStringValue(req.params.id, 'id');
   const payload = getRequestBody<{
     tenantSlug: string;
-    adminEmail: string;
-    adminPassword: string;
-    otp: string;
     reviewNotes?: string;
+    adminEmail?: string;
+    adminPassword?: string;
   }>(req);
   const superAdminId = String(req.superAdmin?.superAdminId);
   const result = await companyRegistrationManagementService.approveRequest(id, payload, superAdminId);

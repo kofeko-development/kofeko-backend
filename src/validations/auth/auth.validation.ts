@@ -27,19 +27,25 @@ export const registerCompanyRequestSchema = z.object({
       fullAddress: z.string().min(5, 'Full address must be at least 5 characters').max(500),
     }),
     industry: z.string().min(2, 'Industry is required').max(120),
-    companySize: z.string().min(1, 'Company size is required').max(60),
+    companySize: z.enum(['1-10', '11-50', '51-200', '201-500', '501-1000', '1000+']),
     companyType: z.enum(['startup', 'enterprise', 'agency', 'non_profit']),
     foundedYear: z.coerce.number().int().min(1800, 'Founded year is invalid').max(new Date().getFullYear(), 'Founded year cannot be in the future'),
     companyWebsite: z.url({ error: 'Please enter a valid company website URL (https://...)' }),
     officialCompanyAddress: z.string().min(5, 'Official company address must be at least 5 characters').max(500),
-    phoneNumber: z.string().min(7, 'Phone number must be at least 7 characters').max(30).optional(),
+    phoneNumber: z
+      .string()
+      .min(9, 'Enter a valid phone number with country code')
+      .max(22, 'Phone number is too long')
+      .regex(/^\+\d{8,17}$/, 'Use international format with country code (e.g. +919876543210)'),
     companyLogo: z.url({ error: 'Please enter a valid company logo URL (https://...)' }),
     shortDescription: z.string().min(20, 'Short description must be at least 20 characters').max(1000),
     linkedinUrl: optionalUrl,
     twitterUrl: optionalUrl,
     termsAccepted: z.literal(true),
-    contactName: z.string().min(2, 'Contact name is required').max(120),
-    contactEmail: z.email('Please enter a valid contact email'),
+    contactName: z.string().min(2).max(120).optional(),
+    contactEmail: z.email().optional(),
+    adminEmail: z.email('Enter a valid company admin email'),
+    password: z.string().min(8, 'Password must be at least 8 characters').max(128),
   }),
 });
 
@@ -54,10 +60,9 @@ export const registerCandidateSchema = z.object({
 
 export const loginSchema = z.object({
   body: z.object({
-    tenantSlug: z.string().min(2).max(60),
+    tenantSlug: z.string().min(2).max(60).optional(),
     email: z.email(),
     password: z.string().min(8).max(128),
-    otp: z.string().min(4).max(12).optional(),
   }),
 });
 
@@ -65,6 +70,18 @@ export const loginCandidateSchema = z.object({
   body: z.object({
     email: z.email(),
     password: z.string().min(8).max(128),
+  }),
+});
+
+export const loginCandidateGoogleSchema = z.object({
+  body: z.object({
+    idToken: z.string().min(50),
+  }),
+});
+
+export const loginCandidateSupabaseSchema = z.object({
+  body: z.object({
+    accessToken: z.string().min(20),
   }),
 });
 

@@ -20,6 +20,59 @@ export type SkillMatchRow = {
   evidence?: string;
 };
 
+export type CareerTrajectoryClassification =
+  | 'high_growth'
+  | 'steady_progression'
+  | 'lateral_movement'
+  | 'potential_stagnation';
+
+export type InterviewRecommendationClassification =
+  | 'strong_interview'
+  | 'possible_interview'
+  | 'low_priority'
+  | 'reject';
+
+export type ScoreDeduction = {
+  factor: string;
+  pointsDeductedApprox: number;
+  reason: string;
+};
+
+export type HiringIntelligence = {
+  applicationSummary: string;
+  candidateSummary: string;
+  keySkills: string[];
+  experienceSummary: {
+    totalYearsApprox?: string;
+    relevantDomains?: string[];
+    notableCompaniesOrIndustries?: string[];
+    keyRolesHeld?: string[];
+    narrative?: string;
+  };
+  careerTrajectory: {
+    classification: CareerTrajectoryClassification;
+    explanation: string;
+  };
+  relevanceToRole: {
+    matchScorePercent: number;
+    strongMatchAreas: string[];
+    missingCapabilities: string[];
+  };
+  matchScoreBreakdown: {
+    theoreticalPerfectScoreNote: string;
+    deductions: ScoreDeduction[];
+    whyFinalPercentIsNot100: string;
+  };
+  keyStrengths: string[];
+  areasForGrowth: string[];
+  riskFlags: string[];
+  interviewRecommendation: {
+    classification: InterviewRecommendationClassification;
+    reasoning: string;
+  };
+  suggestedInterviewQuestions: string[];
+};
+
 export type AnalyzeResult = {
   parsedResume: {
     summary: string;
@@ -36,6 +89,7 @@ export type AnalyzeResult = {
     roleFitNotes: string;
   };
   rankingSummary: string;
+  hiringIntelligence: HiringIntelligence;
 };
 
 export type JobForEvaluation = {
@@ -43,4 +97,3 @@ export type JobForEvaluation = {
   description: string;
   skillWeights: SkillWeight[];
 };
-
