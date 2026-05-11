@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { UserStatus } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { prisma } from '../../config/prisma';
@@ -5,9 +6,16 @@ import { env } from '../../config/env';
 import { comparePassword, hashPassword } from '../../common/auth/password';
 import { createTokenHash } from '../../common/auth/tokenHash';
 import { generateResetToken, getResetTokenExpiryDate } from '../../common/auth/inviteToken';
-import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../common/auth/jwt';
+import {
+  signAccessToken,
+  signCompanyRegistrationEmailToken,
+  signRefreshToken,
+  verifyCompanyRegistrationEmailToken,
+  verifyRefreshToken,
+} from '../../common/auth/jwt';
 import { PERMISSIONS } from '../../common/constants/permissions';
 import { sendEmail } from '../../common/email/emailProvider';
+import { companyRegistrationOtpEmailTemplate } from '../../common/email/templates/companyRegistrationOtpEmail';
 import { passwordResetEmailTemplate } from '../../common/email/templates/passwordResetEmail';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
@@ -25,6 +33,13 @@ import {
 } from '../../types/auth/auth.payloads';
 import { LoginCandidateInput, RegisterCandidateInput } from '../../types/auth/auth.payloads';
 import { auditService } from '../audit/audit.service';
+
+const COMPANY_SIGNUP_OTP_TTL_MS = 10 * 60 * 1000;
+const COMPANY_SIGNUP_OTP_COOLDOWN_MS = 45 * 1000;
+const COMPANY_SIGNUP_OTP_MAX_ATTEMPTS = 8;
+
+const hashCompanySignupOtpCode = (email: string, code: string): string =>
+  createTokenHash(`company-signup-otp|${email.trim().toLowerCase()}|${code.trim()}`);
 
 const sanitizeUser = <T extends { passwordHash: string }>(user: T): Omit<T, 'passwordHash'> => {
   const { passwordHash: _passwordHash, ...safeUser } = user;
@@ -67,10 +82,90 @@ const getRefreshExpiryDate = (): Date => {
 };
 
 export const authService = {
+  async sendCompanySignupEmailOtp(payload: { email: string }): Promise<{ sent: true }> {
+    const email = payload.email.trim().toLowerCase();
+    if (!email) {
+      throw new AppError('Email is required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const latest = await authRepository.findLatestCompanySignupOtp(email);
+    if (
+      latest &&
+      !latest.consumedAt &&
+      Date.now() - latest.createdAt.getTime() < COMPANY_SIGNUP_OTP_COOLDOWN_MS
+    ) {
+      throw new AppError(
+        'Please wait a moment before requesting another code.',
+        StatusCodes.TOO_MANY_REQUESTS,
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+
+    const code = String(crypto.randomInt(100000, 1000000));
+    const codeHash = hashCompanySignupOtpCode(email, code);
+    const expiresAt = new Date(Date.now() + COMPANY_SIGNUP_OTP_TTL_MS);
+
+    await authRepository.deletePendingCompanySignupOtpsForEmail(email);
+    await authRepository.createCompanySignupEmailOtp({ email, codeHash, expiresAt });
+
+    await sendEmail({
+      to: email,
+      subject: 'Your Kofeko company signup verification code',
+      html: companyRegistrationOtpEmailTemplate({ code }),
+    });
+
+    return { sent: true };
+  },
+
+  async verifyCompanySignupEmailOtp(payload: { email: string; code: string }): Promise<{ emailVerificationToken: string }> {
+    const email = payload.email.trim().toLowerCase();
+    const code = payload.code.trim();
+    if (!email || !/^\d{6}$/.test(code)) {
+      throw new AppError('Invalid email or code', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const otp = await authRepository.findActiveCompanySignupOtp(email);
+    if (!otp) {
+      throw new AppError('Code expired or not found. Request a new code.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    if (otp.attempts >= COMPANY_SIGNUP_OTP_MAX_ATTEMPTS) {
+      throw new AppError('Too many attempts. Request a new code.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const expectedHash = hashCompanySignupOtpCode(email, code);
+    if (expectedHash !== otp.codeHash) {
+      await authRepository.incrementCompanySignupOtpAttempts(otp.id);
+      throw new AppError('Invalid verification code', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    await authRepository.markCompanySignupOtpConsumed(otp.id);
+    const emailVerificationToken = signCompanyRegistrationEmailToken(email);
+    return { emailVerificationToken };
+  },
+
   async registerCompanyRequest(payload: RegisterCompanyRequestInput) {
-    const adminPasswordHash = await hashPassword(payload.password);
     const adminEmail = payload.adminEmail.trim().toLowerCase();
-    const { password: _password, ...rest } = payload;
+    let verifiedEmail: string;
+    try {
+      verifiedEmail = verifyCompanyRegistrationEmailToken(payload.emailVerificationToken).email;
+    } catch {
+      throw new AppError(
+        'Verify your admin email with the code we sent before submitting registration.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+    if (verifiedEmail !== adminEmail) {
+      throw new AppError(
+        'Email verification does not match the admin email on this form.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+
+    const adminPasswordHash = await hashPassword(payload.password);
+    const { password: _password, emailVerificationToken: _token, ...rest } = payload;
     const request = await authRepository.createCompanyRegistrationRequest({
       ...rest,
       adminEmail,

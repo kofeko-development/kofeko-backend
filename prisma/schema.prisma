@@ -422,6 +422,19 @@ model AuditLog {
   createdAt   DateTime        @default(now())
 }
 
+/// One-time codes for company signup admin email verification (Nodemailer).
+model CompanySignupEmailOtp {
+  id         String    @id @default(uuid())
+  email      String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([email])
+}
+
 model CompanyRegistrationRequest {
   id                     String                    @id @default(uuid())
   companyName            String

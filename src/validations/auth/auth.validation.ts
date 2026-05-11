@@ -16,6 +16,19 @@ const optionalUrl = z
   .optional()
   .transform((value) => value || undefined);
 
+export const sendCompanySignupEmailOtpSchema = z.object({
+  body: z.object({
+    email: z.email('Enter a valid email address'),
+  }),
+});
+
+export const verifyCompanySignupEmailOtpSchema = z.object({
+  body: z.object({
+    email: z.email('Enter a valid email address'),
+    code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your email'),
+  }),
+});
+
 export const registerCompanyRequestSchema = z.object({
   body: z.object({
     companyName: z.string().min(2, 'Company name must be at least 2 characters').max(160),
@@ -46,6 +59,7 @@ export const registerCompanyRequestSchema = z.object({
     contactEmail: z.email().optional(),
     adminEmail: z.email('Enter a valid company admin email'),
     password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+    emailVerificationToken: z.string().min(20, 'Verify your email with the code we sent'),
   }),
 });
 

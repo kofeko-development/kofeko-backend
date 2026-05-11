@@ -13,6 +13,8 @@ import {
   registerCompanyRequest,
   registerCandidate,
   resetPassword,
+  sendCompanySignupEmailOtp,
+  verifyCompanySignupEmailOtp,
 } from '../../controllers/auth/auth.controller';
 import { authenticate } from '../../common/middlewares/authenticate';
 import { validateRequest } from '../../common/middlewares/validateRequest';
@@ -29,6 +31,8 @@ import {
   registerCompanyRequestSchema,
   registerCandidateSchema,
   resetPasswordSchema,
+  sendCompanySignupEmailOtpSchema,
+  verifyCompanySignupEmailOtpSchema,
 } from '../../validations/auth/auth.validation';
 
 const authRouter = Router();
@@ -42,6 +46,34 @@ const authRouter = Router();
  *     security: []
  */
 authRouter.post('/register-admin', validateRequest(registerAdminSchema), registerAdmin);
+
+/**
+ * @openapi
+ * /api/v1/auth/register-company-email-otp/send:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Send a 6-digit OTP to the company admin email (company signup)
+ *     security: []
+ */
+authRouter.post(
+  '/register-company-email-otp/send',
+  validateRequest(sendCompanySignupEmailOtpSchema),
+  sendCompanySignupEmailOtp,
+);
+
+/**
+ * @openapi
+ * /api/v1/auth/register-company-email-otp/verify:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Verify company signup email OTP and return a short-lived token for registration submit
+ *     security: []
+ */
+authRouter.post(
+  '/register-company-email-otp/verify',
+  validateRequest(verifyCompanySignupEmailOtpSchema),
+  verifyCompanySignupEmailOtp,
+);
 
 /**
  * @openapi
