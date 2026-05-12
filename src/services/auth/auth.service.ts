@@ -35,8 +35,12 @@ import { LoginCandidateInput, RegisterCandidateInput } from '../../types/auth/au
 import { auditService } from '../audit/audit.service';
 
 const COMPANY_SIGNUP_OTP_TTL_MS = 10 * 60 * 1000;
-const COMPANY_SIGNUP_OTP_COOLDOWN_MS = 45 * 1000;
+const COMPANY_SIGNUP_OTP_COOLDOWN_MS_PROD = 45 * 1000;
+const COMPANY_SIGNUP_OTP_COOLDOWN_MS_DEV = 10 * 1000;
 const COMPANY_SIGNUP_OTP_MAX_ATTEMPTS = 8;
+
+const companySignupOtpCooldownMs = () =>
+  env.NODE_ENV === 'development' ? COMPANY_SIGNUP_OTP_COOLDOWN_MS_DEV : COMPANY_SIGNUP_OTP_COOLDOWN_MS_PROD;
 
 const hashCompanySignupOtpCode = (email: string, code: string): string =>
   createTokenHash(`company-signup-otp|${email.trim().toLowerCase()}|${code.trim()}`);
@@ -89,13 +93,12 @@ export const authService = {
     }
 
     const latest = await authRepository.findLatestCompanySignupOtp(email);
-    if (
-      latest &&
-      !latest.consumedAt &&
-      Date.now() - latest.createdAt.getTime() < COMPANY_SIGNUP_OTP_COOLDOWN_MS
-    ) {
+    const cooldownMs = companySignupOtpCooldownMs();
+    const elapsed = latest ? Date.now() - latest.createdAt.getTime() : Infinity;
+    if (latest && !latest.consumedAt && elapsed < cooldownMs) {
+      const waitSec = Math.max(1, Math.ceil((cooldownMs - elapsed) / 1000));
       throw new AppError(
-        'Please wait a moment before requesting another code.',
+        `A verification code was just sent to this email. Try again in ${waitSec}s (rate limit to prevent abuse).`,
         StatusCodes.TOO_MANY_REQUESTS,
         ERROR_CODES.VALIDATION_ERROR,
       );

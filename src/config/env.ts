@@ -37,6 +37,11 @@ const envSchema = z.object({
   SMTP_FROM_NAME: z.string().default('Kofeko'),
   SMTP_FROM_EMAIL: z.string().default('no-reply@kofeko.com'),
 
+  /** When set, outbound mail uses Resend instead of SMTP (see `src/common/email/emailProvider.ts`). */
+  RESEND_API_KEY: z.string().optional(),
+  /** Resend "from" (verified domain or onboarding@resend.dev for tests). Falls back to SMTP_FROM. */
+  RESEND_FROM: z.string().optional(),
+
   STORAGE_PROVIDER: z.enum(['local', 'supabase', 'firebase']).default('local'),
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
@@ -72,11 +77,16 @@ const requireInProduction = (key: string, value: unknown, missing: string[]) => 
 
 const missing: string[] = [];
 
-requireInProduction('SMTP_HOST', parsed.data.SMTP_HOST, missing);
-requireInProduction('SMTP_PORT', parsed.data.SMTP_PORT, missing);
-requireInProduction('SMTP_USER', parsed.data.SMTP_USER, missing);
-requireInProduction('SMTP_PASS', parsed.data.SMTP_PASS, missing);
-requireInProduction('SMTP_FROM', parsed.data.SMTP_FROM, missing);
+const hasResend = Boolean(parsed.data.RESEND_API_KEY?.trim());
+if (!hasResend) {
+  requireInProduction('SMTP_HOST', parsed.data.SMTP_HOST, missing);
+  requireInProduction('SMTP_PORT', parsed.data.SMTP_PORT, missing);
+  requireInProduction('SMTP_USER', parsed.data.SMTP_USER, missing);
+  requireInProduction('SMTP_PASS', parsed.data.SMTP_PASS, missing);
+  requireInProduction('SMTP_FROM', parsed.data.SMTP_FROM, missing);
+} else {
+  requireInProduction('RESEND_API_KEY', parsed.data.RESEND_API_KEY, missing);
+}
 requireInProduction('REPLICATE_API_TOKEN', parsed.data.REPLICATE_API_TOKEN, missing);
 requireInProduction('SUPER_ADMIN_SETUP_KEY', parsed.data.SUPER_ADMIN_SETUP_KEY, missing);
 requireInProduction('APP_FRONTEND_URL', parsed.data.APP_FRONTEND_URL, missing);
@@ -131,10 +141,23 @@ if (missing.length) {
   process.exit(1);
 }
 
+const resolvedSmtpFrom = parsed.data.SMTP_FROM ?? `${parsed.data.SMTP_FROM_NAME} <${parsed.data.SMTP_FROM_EMAIL}>`;
+
+/** Resend-provided test sender (no domain setup). Used in development when RESEND_API_KEY is set but RESEND_FROM is empty. */
+const RESEND_DEV_SANDBOX_FROM = 'Kofeko <onboarding@resend.dev>';
+
+const resendFromExplicit = parsed.data.RESEND_FROM?.trim();
+const useDevResendDefault =
+  hasResend &&
+  !resendFromExplicit &&
+  parsed.data.NODE_ENV === 'development';
+
 export const env = {
   ...parsed.data,
   JWT_ACCESS_SECRET: parsed.data.JWT_ACCESS_SECRET ?? parsed.data.JWT_SECRET,
   JWT_REFRESH_SECRET: parsed.data.JWT_REFRESH_SECRET ?? parsed.data.JWT_SECRET,
   FRONTEND_URL: parsed.data.FRONTEND_URL ?? parsed.data.APP_FRONTEND_URL,
-  SMTP_FROM: parsed.data.SMTP_FROM ?? `${parsed.data.SMTP_FROM_NAME} <${parsed.data.SMTP_FROM_EMAIL}>`,
+  SMTP_FROM: resolvedSmtpFrom,
+  /** Effective From header when using Resend. In local `development`, defaults to onboarding@resend.dev if RESEND_FROM is unset. */
+  RESEND_EFFECTIVE_FROM: (resendFromExplicit || (useDevResendDefault ? RESEND_DEV_SANDBOX_FROM : resolvedSmtpFrom)).trim(),
 };
