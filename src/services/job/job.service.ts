@@ -110,4 +110,24 @@ export const jobService = {
     });
     return updated;
   },
+
+  async deleteJob(id: string, tenantId: string, actorId?: string): Promise<void> {
+    const job = await this.getJobById(id, tenantId);
+    if (job.status !== 'draft') {
+      throw new AppError(
+        'Only draft jobs can be deleted. Publish jobs must be closed first.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+    await jobRepository.deleteByIdAndTenant(id, tenantId);
+    await auditService.createAuditLog({
+      tenantId,
+      action: 'delete',
+      actorId,
+      entityType: 'Job',
+      entityId: id,
+      metadata: { title: job.title },
+    });
+  },
 };

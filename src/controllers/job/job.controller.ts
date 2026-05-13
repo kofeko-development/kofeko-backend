@@ -77,6 +77,14 @@ export const closeJob = catchAsync(async (req: Request, res: Response) => {
   sendSuccess(res, StatusCodes.OK, 'Job closed successfully', result);
 });
 
+export const deleteJob = catchAsync(async (req: Request, res: Response) => {
+  const jobId = requireStringValue(req.params.id, 'jobId');
+  const tenantId = String(req.user?.tenantId);
+  const actorId = String(req.user?.userId);
+  await jobService.deleteJob(jobId, tenantId, actorId);
+  sendSuccess(res, StatusCodes.OK, 'Job deleted successfully', null);
+});
+
 export const evaluateAllForJob = catchAsync(async (req: Request, res: Response) => {
   const jobId = requireStringValue(req.params.jobId, 'jobId');
   const tenantId = String(req.user?.tenantId);
