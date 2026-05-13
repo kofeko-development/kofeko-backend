@@ -33,6 +33,8 @@ export type RegisterCompanyRequestInput = {
   /** Company admin login email (used after approval with the chosen password). */
   adminEmail: string;
   password: string;
+  /** Issued after successful email OTP verification (must match adminEmail). */
+  emailVerificationToken: string;
 };
 
 export type RegisterCandidateInput = {

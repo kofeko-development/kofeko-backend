@@ -12,6 +12,9 @@ import { portalProfileService } from '../../services/portal/portalProfile.servic
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
+import { uploadFile } from '../../common/storage/fileUpload';
+import { extractResumeText } from '../../common/ai/extractResumeText';
+import { parseResumeOnly } from '../../common/ai/parseResume';
 
 export const portalRegisterCandidate = catchAsync(async (req: Request, res: Response) => {
   const payload = getRequestBody<{
@@ -152,4 +155,49 @@ export const portalUpdateProfile = catchAsync(async (req: Request, res: Response
   const result = await portalProfileService.updateProfile(candidateId, tenantId, payload);
   sendSuccess(res, StatusCodes.OK, 'Profile updated', result);
 });
+
+export const portalParseResume = catchAsync(async (req: Request, res: Response) => {
+  const candidateId = String(req.candidate?.candidateId);
+  const tenantId = String(req.candidate?.tenantId);
+  const file = (req as Request & { file?: Express.Multer.File }).file;
+
+  if (!file) {
+    throw new AppError('Resume file is required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  const allowed = new Set([
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+  ]);
+
+  if (!allowed.has(file.mimetype)) {
+    throw new AppError('Unsupported format. Use PDF, DOCX, or TXT.', StatusCodes.UNSUPPORTED_MEDIA_TYPE, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  const maxBytes = 8 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    throw new AppError('File is too large (max 8 MB).', StatusCodes.REQUEST_TOO_LONG, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  const resumeUrl = await uploadFile(file.buffer, file.originalname, file.mimetype);
+  const resumeText = await extractResumeText(file.buffer, file.mimetype, file.originalname);
+  const parsed = await parseResumeOnly(resumeText);
+
+  await prisma.candidate.updateMany({
+    where: { id: candidateId, tenantId },
+    data: {
+      resumeUrl,
+      resumeMimeType: file.mimetype,
+      skills: parsed.skills.length > 0 ? parsed.skills : undefined,
+    },
+  });
+
+  sendSuccess(res, StatusCodes.OK, 'Resume parsed successfully', {
+    resumeUrl,
+    resumeMimeType: file.mimetype,
+    parsed,
+  });
+});
+
 

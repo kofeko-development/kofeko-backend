@@ -32,6 +32,18 @@ export const registerCompanyRequest = catchAsync(async (req: Request, res: Respo
   sendSuccess(res, StatusCodes.CREATED, 'Company registration submitted successfully', result);
 });
 
+export const sendCompanySignupEmailOtp = catchAsync(async (req: Request, res: Response) => {
+  const { email } = getRequestBody<{ email: string }>(req);
+  const result = await authService.sendCompanySignupEmailOtp({ email });
+  sendSuccess(res, StatusCodes.OK, 'Verification code sent', result);
+});
+
+export const verifyCompanySignupEmailOtp = catchAsync(async (req: Request, res: Response) => {
+  const { email, code } = getRequestBody<{ email: string; code: string }>(req);
+  const result = await authService.verifyCompanySignupEmailOtp({ email, code });
+  sendSuccess(res, StatusCodes.OK, 'Email verified', result);
+});
+
 export const login = catchAsync(async (req: Request, res: Response) => {
   const { ip, headers } = req;
   const userAgent = optionalStringValue(headers['user-agent']);

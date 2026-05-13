@@ -503,6 +503,16 @@ export const authRepository = {
     });
   },
 
+  async findPendingCompanyRegistrationRequestByEmail(adminEmail: string) {
+    return prisma.companyRegistrationRequest.findFirst({
+      where: {
+        adminEmail,
+        status: CompanyRegistrationStatus.pending,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
   async findCompanyRegistrationRequestById(id: string) {
     return prisma.companyRegistrationRequest.findUnique({ where: { id } });
   },
@@ -629,6 +639,44 @@ export const authRepository = {
     }, {
       maxWait: 10000,
       timeout: 30000,
+    });
+  },
+
+  async deletePendingCompanySignupOtpsForEmail(email: string): Promise<void> {
+    await prisma.companySignupEmailOtp.deleteMany({
+      where: { email, consumedAt: null },
+    });
+  },
+
+  async createCompanySignupEmailOtp(input: { email: string; codeHash: string; expiresAt: Date }) {
+    return prisma.companySignupEmailOtp.create({ data: input });
+  },
+
+  async findLatestCompanySignupOtp(email: string) {
+    return prisma.companySignupEmailOtp.findFirst({
+      where: { email },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  async findActiveCompanySignupOtp(email: string) {
+    return prisma.companySignupEmailOtp.findFirst({
+      where: { email, consumedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  async incrementCompanySignupOtpAttempts(id: string) {
+    return prisma.companySignupEmailOtp.update({
+      where: { id },
+      data: { attempts: { increment: 1 } },
+    });
+  },
+
+  async markCompanySignupOtpConsumed(id: string) {
+    return prisma.companySignupEmailOtp.update({
+      where: { id },
+      data: { consumedAt: new Date() },
     });
   },
 };
