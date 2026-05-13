@@ -18,12 +18,13 @@ export const pipelineRepository = {
   async findByIdAndTenantWithRelations(
     id: string,
     tenantId: string,
-  ): Promise<(Pipeline & { candidate: { firstName: string; lastName: string; email: string }; job: { title: string } }) | null> {
+  ): Promise<(Pipeline & { candidate: { firstName: string; lastName: string; email: string; resumeUrl: string | null; resumeMimeType: string | null }; job: { title: string }; evaluations: any[] }) | null> {
     return prisma.pipeline.findFirst({
       where: { id, tenantId },
       include: {
-        candidate: { select: { firstName: true, lastName: true, email: true } },
+        candidate: { select: { firstName: true, lastName: true, email: true, resumeUrl: true, resumeMimeType: true } },
         job: { select: { title: true } },
+        evaluations: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
     });
   },
@@ -52,8 +53,9 @@ export const pipelineRepository = {
       prisma.pipeline.findMany({
         where,
         include: {
-          candidate: { select: { firstName: true, lastName: true, email: true } },
+          candidate: { select: { firstName: true, lastName: true, email: true, resumeUrl: true, resumeMimeType: true } },
           job: { select: { title: true } },
+          evaluations: { orderBy: { createdAt: 'desc' }, take: 1 },
         },
         orderBy: { createdAt: 'desc' },
         skip: pagination.skip,
