@@ -1,6 +1,7 @@
 import { StatusCodes } from 'http-status-codes';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
+import { openRouterJsonCompletion } from '../../common/ai/openRouter';
 
 export type JdCreatorInput = {
   jobTitle: string;
@@ -10,49 +11,64 @@ export type JdCreatorInput = {
   employmentType?: string;
 };
 
-function escapeHtml(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
+export type SkillWeight = {
+  skill: string;
+  weight: number;
+  yearsOfExperience: number;
+};
 
 export const jdCreatorService = {
-  async generateJobDescription(input: JdCreatorInput): Promise<{ html: string }> {
+  async generateJobDescription(input: JdCreatorInput): Promise<{ html: string; plainText: string; suggestedSkills: SkillWeight[] }> {
     const jobTitle = input.jobTitle.trim();
     const requirements = input.requirements.trim();
 
-    if (!jobTitle || !requirements) {
-      throw new AppError('jobTitle and requirements are required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    if (!jobTitle) {
+      throw new AppError('Job Title is required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
     }
 
-    // For now: do not generate with AI. Just return a clean preview of what was submitted.
-    const meta = [
-      input.location?.trim() ? `Location: ${input.location.trim()}` : null,
-      input.jobType?.trim() ? `Work mode: ${input.jobType.trim()}` : null,
-      input.employmentType?.trim() ? `Employment type: ${input.employmentType.trim()}` : null,
-    ].filter(Boolean) as string[];
+    const systemPrompt = `You are a professional HR and Job Description writer. 
+Generate a high-quality job description in TWO formats:
+1. HTML format for a premium web preview.
+2. Structured plain text for a standard textarea (use clear headers and bullet points with dashes).
 
-    const safeTitle = escapeHtml(jobTitle);
-    const safeMeta = meta.map(escapeHtml);
-    const safeRequirements = escapeHtml(requirements).replaceAll('\n', '<br/>');
+Your response MUST be a valid JSON object with the following structure:
+{
+  "html": "string (the job description in professional HTML, using Tailwind classes if possible or clean semantic tags. Use <h2> for headers, <ul>/<li> for lists, and <p> for paragraphs)",
+  "plainText": "string (the structured plain text version with clear headers and bullet points)",
+  "suggestedSkills": [
+    { "skill": "string", "weight": number (0-10), "yearsOfExperience": number }
+  ]
+}
 
-    const html = `
-<div class="space-y-8">
-  <div class="space-y-2">
-    <h2 class="text-lg font-bold font-headline mb-2 text-foreground">${safeTitle}</h2>
-    ${safeMeta.length ? `<p class="text-muted-foreground">${safeMeta.join(' • ')}</p>` : ''}
-  </div>
-  <div class="space-y-2">
-    <h3 class="font-semibold text-foreground mb-2">Requirements / Notes</h3>
-    <p class="text-muted-foreground">${safeRequirements}</p>
-  </div>
-</div>
-    `.trim();
+- For weights: 10 is essential/mandatory, 1-3 is preferred/nice-to-have.
+- For years: Provide a realistic number based on the seniority usually associated with the title.
+- If requirements are provided, use them to customize the description and skills. If requirements are empty, generate a comprehensive description based on the title, job type (${input.jobType}), and employment type (${input.employmentType}).`;
 
-    return { html };
+    const userPrompt = `Job Title: ${jobTitle}
+Job Type: ${input.jobType || 'Not specified'}
+Employment Type: ${input.employmentType || 'Not specified'}
+Additional Requirements/Context: ${requirements || 'None provided. Generate a standard profile.'}`;
+
+    try {
+      const response = await openRouterJsonCompletion({
+        system: systemPrompt,
+        user: userPrompt,
+        model: 'google/gemini-2.0-flash-001'
+      });
+
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : response;
+      const result = JSON.parse(jsonStr) as { html: string; plainText: string; suggestedSkills: SkillWeight[] };
+
+      return {
+        html: result.html,
+        plainText: result.plainText || '',
+        suggestedSkills: result.suggestedSkills || []
+      };
+    } catch (error) {
+      console.error('AI JD Generation failed:', error);
+      throw new AppError('Failed to generate job description with AI', StatusCodes.BAD_GATEWAY, ERROR_CODES.AI_EVALUATION_FAILED);
+    }
   },
 };
 

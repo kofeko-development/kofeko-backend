@@ -1,6 +1,7 @@
 export type SkillWeight = {
   skill: string;
   weight: number; // 0–10, higher = more important
+  yearsOfExperience?: number;
 };
 
 export type SectionScores = {

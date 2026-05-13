@@ -4,13 +4,23 @@ import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { auditService } from '../audit/audit.service';
 import { jobRepository } from '../../repositories/job/job.repository';
+import { companyRepository } from '../../repositories/company/company.repository';
 import { CreateJobInput, UpdateJobInput } from '../../types/job/job.types';
 import { PaginationInput } from '../../common/utils/pagination';
 
 export const jobService = {
   async createJob(payload: CreateJobInput, actorId?: string): Promise<Job> {
+    let location = payload.location;
+    if (!location) {
+      const company = await companyRepository.findByTenantId(payload.tenantId);
+      if (company?.officialCompanyAddress) {
+        location = company.officialCompanyAddress;
+      }
+    }
+
     const job = await jobRepository.create({
       ...payload,
+      location,
       status: 'draft',
     });
     await auditService.createAuditLog({
