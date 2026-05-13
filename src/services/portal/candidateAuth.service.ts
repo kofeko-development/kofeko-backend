@@ -78,6 +78,12 @@ export const candidateAuthService = {
       lastName: created.lastName,
       email: created.email,
       tenantId: created.tenantId,
+      summary: null,
+      education: [],
+      workExperience: [],
+      projects: [],
+      hobbies: [],
+      skills: [],
     };
   },
 
@@ -111,14 +117,25 @@ export const candidateAuthService = {
     });
 
     const jwtPayload = { sub: candidate.id, tenantId: tenant.id, type: 'candidate' as const };
+    const fullCandidate = await this.me(candidate.id, tenant.id);
+
     return {
       accessToken: signCandidateAccessToken(jwtPayload),
       refreshToken: signCandidateRefreshToken(jwtPayload),
       candidate: {
-        id: candidate.id,
-        firstName: candidate.firstName,
-        lastName: candidate.lastName,
-        email: candidate.email,
+        id: fullCandidate.id,
+        firstName: fullCandidate.firstName,
+        lastName: fullCandidate.lastName,
+        email: fullCandidate.email,
+        phoneNumber: fullCandidate.phoneNumber,
+        resumeUrl: fullCandidate.resumeUrl,
+        summary: fullCandidate.summary,
+        education: fullCandidate.education,
+        workExperience: fullCandidate.workExperience,
+        projects: fullCandidate.projects,
+        hobbies: fullCandidate.hobbies,
+        skills: fullCandidate.skills,
+        linkedinUrl: fullCandidate.linkedinUrl,
       },
     };
   },
@@ -156,6 +173,11 @@ export const candidateAuthService = {
         noticePeriod: true,
         skills: true,
         location: true,
+        summary: true,
+        education: true,
+        workExperience: true,
+        projects: true,
+        hobbies: true,
         yearsOfExperience: true,
         lastLoginAt: true,
         createdAt: true,

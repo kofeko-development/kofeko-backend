@@ -109,6 +109,11 @@ export const updatePortalProfileSchema = z.object({
       noticePeriod: z.number().int().nonnegative().optional(),
       skills: z.array(z.string().min(1).max(50)).max(100).optional(),
       location: z.string().min(1).max(100).optional(),
+      summary: z.string().max(2000).optional(),
+      education: z.array(z.any()).optional(),
+      workExperience: z.array(z.any()).optional(),
+      projects: z.array(z.any()).optional(),
+      hobbies: z.array(z.string()).optional(),
     })
     .strict(),
 });

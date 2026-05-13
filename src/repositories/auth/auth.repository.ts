@@ -347,7 +347,7 @@ export const authRepository = {
     });
   },
 
-  async findUserByIdAndTenant(id: string, tenantId: string): Promise<(User & { tenant: Tenant }) | null> {
+  async findUserByIdAndTenant(id: string, tenantId: string): Promise<any | null> {
     return prisma.user.findFirst({
       where: { id, tenantId },
       include: {
@@ -675,6 +675,44 @@ export const authRepository = {
 
   async markCompanySignupOtpConsumed(id: string) {
     return prisma.companySignupEmailOtp.update({
+      where: { id },
+      data: { consumedAt: new Date() },
+    });
+  },
+
+  async deletePendingCandidatePhoneOtps(phoneNumber: string): Promise<void> {
+    await prisma.candidatePhoneOtp.deleteMany({
+      where: { phoneNumber, consumedAt: null },
+    });
+  },
+
+  async createCandidatePhoneOtp(input: { phoneNumber: string; codeHash: string; expiresAt: Date }) {
+    return prisma.candidatePhoneOtp.create({ data: input });
+  },
+
+  async findLatestCandidatePhoneOtp(phoneNumber: string) {
+    return prisma.candidatePhoneOtp.findFirst({
+      where: { phoneNumber },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  async findActiveCandidatePhoneOtp(phoneNumber: string) {
+    return prisma.candidatePhoneOtp.findFirst({
+      where: { phoneNumber, consumedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  async incrementCandidatePhoneOtpAttempts(id: string) {
+    return prisma.candidatePhoneOtp.update({
+      where: { id },
+      data: { attempts: { increment: 1 } },
+    });
+  },
+
+  async markCandidatePhoneOtpConsumed(id: string) {
+    return prisma.candidatePhoneOtp.update({
       where: { id },
       data: { consumedAt: new Date() },
     });

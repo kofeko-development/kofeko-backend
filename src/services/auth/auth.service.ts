@@ -12,6 +12,7 @@ import {
   signRefreshToken,
   verifyCompanyRegistrationEmailToken,
   verifyRefreshToken,
+  signCandidatePhoneVerificationToken,
 } from '../../common/auth/jwt';
 import { PERMISSIONS } from '../../common/constants/permissions';
 import { sendEmail } from '../../common/email/emailProvider';
@@ -50,7 +51,7 @@ const sanitizeUser = <T extends { passwordHash: string }>(user: T): Omit<T, 'pas
   return safeUser;
 };
 
-const formatAuthUser = (user: any) => {
+const formatAuthUser = (user: any, candidate?: any) => {
   const safeUser = sanitizeUser(user);
   const permissions = Array.from(
     new Set(
@@ -66,6 +67,16 @@ const formatAuthUser = (user: any) => {
     ...safeUser,
     permissions,
     roles,
+    // Candidate-specific fields
+    summary: candidate?.summary || null,
+    education: candidate?.education || [],
+    workExperience: candidate?.workExperience || [],
+    projects: candidate?.projects || [],
+    hobbies: candidate?.hobbies || [],
+    skills: candidate?.skills || [],
+    phoneNumber: candidate?.phoneNumber || safeUser.phoneNumber || null,
+    resumeUrl: candidate?.resumeUrl || null,
+    linkedinProfileUrl: candidate?.linkedinUrl || safeUser.linkedinProfileUrl || null,
   };
 };
 
@@ -145,6 +156,49 @@ export const authService = {
     await authRepository.markCompanySignupOtpConsumed(otp.id);
     const emailVerificationToken = signCompanyRegistrationEmailToken(email);
     return { emailVerificationToken };
+  },
+
+  async verifyCandidatePhoneOtpMsg91(payload: { accessToken: string }): Promise<{ phoneVerificationToken: string }> {
+    const { accessToken } = payload;
+    if (!accessToken) {
+      throw new AppError('MSG91 access token is required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    try {
+      const response = await fetch('https://control.msg91.com/api/v5/widget/verifyAccessToken', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          authkey: process.env.MSG91_AUTH_KEY || '516208ArT3XzpJ6a0427d0P1',
+          'access-token': accessToken,
+        }),
+      });
+
+      const data = await response.json() as any;
+
+      // MSG91 success response usually has type: 'success'
+      // The phone number can be in 'mobile' or 'message' field depending on the widget config
+      if (data.type !== 'success') {
+        throw new AppError(data.message || 'OTP verification failed', StatusCodes.UNAUTHORIZED, ERROR_CODES.VALIDATION_ERROR);
+      }
+
+      const rawMobile = data.mobile || data.message;
+      if (!rawMobile || typeof rawMobile !== 'string') {
+        throw new AppError('Verified phone number not found in MSG91 response', StatusCodes.UNAUTHORIZED, ERROR_CODES.VALIDATION_ERROR);
+      }
+
+      // Ensure E.164 format
+      const phoneNumber = rawMobile.startsWith('+') ? rawMobile : `+${rawMobile}`;
+
+      const phoneVerificationToken = signCandidatePhoneVerificationToken(phoneNumber);
+      return { phoneVerificationToken };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError('Failed to verify OTP with MSG91', StatusCodes.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
+    }
   },
 
   async registerCompanyRequest(payload: RegisterCompanyRequestInput) {
@@ -385,12 +439,32 @@ export const authService = {
       expiresAt: getRefreshExpiryDate(),
     });
 
+    await this.ensureCandidateRecord(user);
+
     return {
       accessToken,
       refreshToken,
       user: formatAuthUser(user),
       tenant: user.tenant,
     };
+  },
+
+  async ensureCandidateRecord(user: any) {
+    const existing = await prisma.candidate.findUnique({
+      where: { id: user.id },
+    });
+    if (!existing) {
+      await prisma.candidate.create({
+        data: {
+          id: user.id,
+          tenantId: user.tenantId,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          status: 'new',
+        },
+      });
+    }
   },
 
   async loginCandidateWithGoogle(payload: { idToken: string }, userAgent?: string, ipAddress?: string) {
@@ -434,6 +508,10 @@ export const authService = {
       user = hydrated;
     }
 
+    if (!user) {
+      throw new AppError('User not found', StatusCodes.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
+    }
+
     if (user.status !== UserStatus.active) {
       throw new AppError('User is not active', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
@@ -456,10 +534,12 @@ export const authService = {
       expiresAt: getRefreshExpiryDate(),
     });
 
+    await this.ensureCandidateRecord(user);
+
     return {
       accessToken,
       refreshToken,
-      user: formatAuthUser(user),
+      user: await this.me(user.id, user.tenantId),
       tenant: user.tenant,
     };
   },
@@ -509,6 +589,10 @@ export const authService = {
       user = hydrated;
     }
 
+    if (!user) {
+      throw new AppError('User not found', StatusCodes.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
+    }
+
     if (user.status !== UserStatus.active) {
       throw new AppError('User is not active', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
@@ -531,10 +615,12 @@ export const authService = {
       expiresAt: getRefreshExpiryDate(),
     });
 
+    await this.ensureCandidateRecord(user);
+
     return {
       accessToken,
       refreshToken,
-      user: formatAuthUser(user),
+      user: await this.me(user.id, user.tenantId),
       tenant: user.tenant,
     };
   },
@@ -566,7 +652,16 @@ export const authService = {
       throw new AppError('User not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
 
-    return formatAuthUser(user);
+    // If it's a candidate, fetch candidate profile data to merge
+    let candidate = null;
+    const roles = (user.userRoles ?? []).map((ur: any) => ur.role?.name);
+    if (roles.includes('candidate')) {
+      candidate = await prisma.candidate.findUnique({
+        where: { id: userId },
+      });
+    }
+
+    return formatAuthUser(user, candidate);
   },
 
   async logout(refreshToken: string): Promise<void> {

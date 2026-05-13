@@ -315,6 +315,11 @@ model Candidate {
   currentCompany   String?
   yearsOfExperience Float?
   status           CandidateStatus  @default(new)
+  summary          String?
+  education        Json?
+  workExperience   Json?
+  projects         Json?
+  hobbies          Json?
   applications     Pipeline[]
   evaluations      Evaluation[]
   createdAt        DateTime         @default(now())
@@ -433,6 +438,19 @@ model CompanySignupEmailOtp {
   createdAt  DateTime  @default(now())
 
   @@index([email])
+}
+
+/// One-time codes for candidate phone verification.
+model CandidatePhoneOtp {
+  id          String    @id @default(uuid())
+  phoneNumber String
+  codeHash    String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([phoneNumber])
 }
 
 model CompanyRegistrationRequest {
