@@ -16,6 +16,8 @@ import {
   sendCompanySignupEmailOtp,
   verifyCompanySignupEmailOtp,
   verifyCandidatePhoneOtpMsg91,
+  sendCandidateSignupEmailOtp,
+  verifyCandidateSignupEmailOtp,
 } from '../../controllers/auth/auth.controller';
 import { authenticate } from '../../common/middlewares/authenticate';
 import { validateRequest } from '../../common/middlewares/validateRequest';
@@ -35,6 +37,8 @@ import {
   sendCompanySignupEmailOtpSchema,
   verifyCompanySignupEmailOtpSchema,
   verifyCandidatePhoneOtpMsg91Schema,
+  sendCandidateSignupEmailOtpSchema,
+  verifyCandidateSignupEmailOtpSchema,
 } from '../../validations/auth/auth.validation';
 
 const authRouter = Router();
@@ -81,6 +85,18 @@ authRouter.post(
   '/candidate-phone-otp/verify-msg91',
   validateRequest(verifyCandidatePhoneOtpMsg91Schema),
   verifyCandidatePhoneOtpMsg91,
+);
+
+authRouter.post(
+  '/candidate-signup-email-otp/send',
+  validateRequest(sendCandidateSignupEmailOtpSchema),
+  sendCandidateSignupEmailOtp,
+);
+
+authRouter.post(
+  '/candidate-signup-email-otp/verify',
+  validateRequest(verifyCandidateSignupEmailOtpSchema),
+  verifyCandidateSignupEmailOtp,
 );
 
 /**

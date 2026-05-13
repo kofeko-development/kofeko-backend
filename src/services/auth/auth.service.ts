@@ -13,6 +13,8 @@ import {
   verifyCompanyRegistrationEmailToken,
   verifyRefreshToken,
   signCandidatePhoneVerificationToken,
+  signCandidateSignupEmailToken,
+  verifyCandidateSignupEmailToken,
 } from '../../common/auth/jwt';
 import { PERMISSIONS } from '../../common/constants/permissions';
 import { sendEmail } from '../../common/email/emailProvider';
@@ -42,6 +44,17 @@ const COMPANY_SIGNUP_OTP_MAX_ATTEMPTS = 8;
 
 const companySignupOtpCooldownMs = () =>
   env.NODE_ENV === 'development' ? COMPANY_SIGNUP_OTP_COOLDOWN_MS_DEV : COMPANY_SIGNUP_OTP_COOLDOWN_MS_PROD;
+
+const CANDIDATE_SIGNUP_OTP_TTL_MS = 10 * 60 * 1000;
+const CANDIDATE_SIGNUP_OTP_COOLDOWN_MS_PROD = 45 * 1000;
+const CANDIDATE_SIGNUP_OTP_COOLDOWN_MS_DEV = 10 * 1000;
+const CANDIDATE_SIGNUP_OTP_MAX_ATTEMPTS = 8;
+
+const candidateSignupOtpCooldownMs = () =>
+  env.NODE_ENV === 'development' ? CANDIDATE_SIGNUP_OTP_COOLDOWN_MS_DEV : CANDIDATE_SIGNUP_OTP_COOLDOWN_MS_PROD;
+
+const hashCandidateSignupOtpCode = (email: string, code: string): string =>
+  createTokenHash(`candidate-signup-otp|${email.trim().toLowerCase()}|${code.trim()}`);
 
 const hashCompanySignupOtpCode = (email: string, code: string): string =>
   createTokenHash(`company-signup-otp|${email.trim().toLowerCase()}|${code.trim()}`);
@@ -154,8 +167,82 @@ export const authService = {
     }
 
     await authRepository.markCompanySignupOtpConsumed(otp.id);
-    const emailVerificationToken = signCompanyRegistrationEmailToken(email);
-    return { emailVerificationToken };
+    return { emailVerificationToken: signCompanyRegistrationEmailToken(email) };
+  },
+
+  async sendCandidateSignupEmailOtp(payload: { email: string }): Promise<{ sent: true }> {
+    const email = payload.email.trim().toLowerCase();
+    if (!email) {
+      throw new AppError('Email is required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    // Check if email already exists
+    const existing = await authRepository.findCandidateByEmail(email);
+    if (existing) {
+      throw new AppError('An account with this email already exists.', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
+    }
+
+    const latest = await authRepository.findLatestCandidateSignupOtp(email);
+    const cooldownMs = candidateSignupOtpCooldownMs();
+    const elapsed = latest ? Date.now() - latest.createdAt.getTime() : Infinity;
+    if (latest && !latest.consumedAt && elapsed < cooldownMs) {
+      const waitSec = Math.max(1, Math.ceil((cooldownMs - elapsed) / 1000));
+      throw new AppError(
+        `A verification code was just sent to this email. Try again in ${waitSec}s.`,
+        StatusCodes.TOO_MANY_REQUESTS,
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+
+    const code = String(crypto.randomInt(100000, 1000000));
+    const codeHash = hashCandidateSignupOtpCode(email, code);
+    const expiresAt = new Date(Date.now() + CANDIDATE_SIGNUP_OTP_TTL_MS);
+
+    await authRepository.deletePendingCandidateSignupOtpsForEmail(email);
+    await authRepository.createCandidateSignupEmailOtp({ email, codeHash, expiresAt });
+
+    await sendEmail({
+      to: email,
+      subject: 'Your Kofeko signup verification code',
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #0f172a; margin-bottom: 16px;">Verify your email</h2>
+          <p style="color: #475569; font-size: 16px; line-height: 24px;">Welcome to Kofeko! Use the following code to verify your email address and complete your signup.</p>
+          <div style="background-color: #f8fafc; padding: 24px; text-align: center; border-radius: 6px; margin: 24px 0;">
+            <span style="font-family: monospace; font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #2563eb;">${code}</span>
+          </div>
+          <p style="color: #64748b; font-size: 14px;">This code will expire in 10 minutes. If you didn't request this, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+
+    return { sent: true };
+  },
+
+  async verifyCandidateSignupEmailOtp(payload: { email: string; code: string }): Promise<{ emailVerificationToken: string }> {
+    const email = payload.email.trim().toLowerCase();
+    const code = payload.code.trim();
+    if (!email || !/^\d{6}$/.test(code)) {
+      throw new AppError('Invalid email or code', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const otp = await authRepository.findActiveCandidateSignupEmailOtp(email);
+    if (!otp) {
+      throw new AppError('Verification code expired or not found. Please request a new one.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    if (otp.attempts >= CANDIDATE_SIGNUP_OTP_MAX_ATTEMPTS) {
+      throw new AppError('Too many failed attempts. Please request a new code.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const codeHash = hashCandidateSignupOtpCode(email, code);
+    if (otp.codeHash !== codeHash) {
+      await authRepository.incrementCandidateSignupOtpAttempts(otp.id);
+      throw new AppError('Invalid verification code.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    await authRepository.markCandidateSignupOtpConsumed(otp.id);
+    return { emailVerificationToken: signCandidateSignupEmailToken(email) };
   },
 
   async verifyCandidatePhoneOtpMsg91(payload: { accessToken: string }): Promise<{ phoneVerificationToken: string }> {
@@ -359,6 +446,28 @@ export const authService = {
   },
 
   async registerCandidate(payload: RegisterCandidateInput, userAgent?: string, ipAddress?: string) {
+    const email = payload.email.trim().toLowerCase();
+
+    // Verify email token
+    let verifiedEmail: string;
+    try {
+      verifiedEmail = verifyCandidateSignupEmailToken(payload.emailVerificationToken).email;
+    } catch {
+      throw new AppError(
+        'Verify your email with the code we sent before creating an account.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+
+    if (verifiedEmail !== email) {
+      throw new AppError(
+        'Email verification does not match the email on this form.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+
     const candidateTenantSlug = process.env.CANDIDATE_TENANT_SLUG ?? 'kofeko-candidates';
     const candidateTenantName = process.env.CANDIDATE_TENANT_NAME ?? 'Kofeko Candidates';
     const passwordHash = await hashPassword(payload.password);

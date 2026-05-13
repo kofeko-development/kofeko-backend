@@ -29,6 +29,19 @@ export const verifyCompanySignupEmailOtpSchema = z.object({
   }),
 });
 
+export const sendCandidateSignupEmailOtpSchema = z.object({
+  body: z.object({
+    email: z.email('Enter a valid email address'),
+  }),
+});
+
+export const verifyCandidateSignupEmailOtpSchema = z.object({
+  body: z.object({
+    email: z.email('Enter a valid email address'),
+    code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your email'),
+  }),
+});
+
 export const verifyCandidatePhoneOtpMsg91Schema = z.object({
   body: z.object({
     accessToken: z.string().min(10, 'MSG91 access token is required'),
@@ -75,6 +88,7 @@ export const registerCandidateSchema = z.object({
     lastName: z.string().min(1).max(80),
     email: z.email(),
     password: z.string().min(8).max(128),
+    emailVerificationToken: z.string().min(20, 'Verify your email with the code we sent'),
   }),
 });
 

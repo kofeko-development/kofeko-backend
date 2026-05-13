@@ -77,3 +77,31 @@ export const verifyCandidatePhoneVerificationToken = (token: string): CandidateP
     throw new AppError('Invalid or expired phone verification', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
   }
 };
+
+export const CANDIDATE_SIGNUP_EMAIL_JWT_TYP = 'kofeko.candidate-signup-email.v1';
+export interface CandidateSignupEmailJwtPayload {
+  typ: typeof CANDIDATE_SIGNUP_EMAIL_JWT_TYP;
+  email: string;
+}
+
+export const signCandidateSignupEmailToken = (email: string): string => {
+  const normalized = email.trim().toLowerCase();
+  return jwt.sign(
+    { typ: CANDIDATE_SIGNUP_EMAIL_JWT_TYP, email: normalized } satisfies CandidateSignupEmailJwtPayload,
+    env.JWT_ACCESS_SECRET,
+    { expiresIn: '30m' },
+  );
+};
+
+export const verifyCandidateSignupEmailToken = (token: string): CandidateSignupEmailJwtPayload => {
+  try {
+    const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as jwt.JwtPayload & Partial<CandidateSignupEmailJwtPayload>;
+    if (decoded.typ !== CANDIDATE_SIGNUP_EMAIL_JWT_TYP || typeof decoded.email !== 'string' || !decoded.email.trim()) {
+      throw new AppError('Invalid candidate email verification token', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+    return { typ: CANDIDATE_SIGNUP_EMAIL_JWT_TYP, email: decoded.email.trim().toLowerCase() };
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError('Invalid or expired candidate email verification', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+};

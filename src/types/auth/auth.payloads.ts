@@ -42,6 +42,7 @@ export type RegisterCandidateInput = {
   lastName: string;
   email: string;
   password: string;
+  emailVerificationToken: string;
 };
 
 export type LoginInput = {

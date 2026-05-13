@@ -680,6 +680,50 @@ export const authRepository = {
     });
   },
 
+  async findCandidateByEmail(email: string) {
+    return prisma.candidate.findFirst({
+      where: { email: email.toLowerCase() },
+    });
+  },
+
+  async deletePendingCandidateSignupOtpsForEmail(email: string): Promise<void> {
+    await prisma.candidateSignupEmailOtp.deleteMany({
+      where: { email, consumedAt: null },
+    });
+  },
+
+  async createCandidateSignupEmailOtp(input: { email: string; codeHash: string; expiresAt: Date }) {
+    return prisma.candidateSignupEmailOtp.create({ data: input });
+  },
+
+  async findLatestCandidateSignupOtp(email: string) {
+    return prisma.candidateSignupEmailOtp.findFirst({
+      where: { email },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  async findActiveCandidateSignupEmailOtp(email: string) {
+    return prisma.candidateSignupEmailOtp.findFirst({
+      where: { email, consumedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  async incrementCandidateSignupOtpAttempts(id: string) {
+    return prisma.candidateSignupEmailOtp.update({
+      where: { id },
+      data: { attempts: { increment: 1 } },
+    });
+  },
+
+  async markCandidateSignupOtpConsumed(id: string) {
+    return prisma.candidateSignupEmailOtp.update({
+      where: { id },
+      data: { consumedAt: new Date() },
+    });
+  },
+
   async deletePendingCandidatePhoneOtps(phoneNumber: string): Promise<void> {
     await prisma.candidatePhoneOtp.deleteMany({
       where: { phoneNumber, consumedAt: null },

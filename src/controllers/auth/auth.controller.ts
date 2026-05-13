@@ -44,6 +44,18 @@ export const verifyCompanySignupEmailOtp = catchAsync(async (req: Request, res: 
   sendSuccess(res, StatusCodes.OK, 'Email verified', result);
 });
 
+export const sendCandidateSignupEmailOtp = catchAsync(async (req: Request, res: Response) => {
+  const { email } = getRequestBody<{ email: string }>(req);
+  const result = await authService.sendCandidateSignupEmailOtp({ email });
+  sendSuccess(res, StatusCodes.OK, 'Verification code sent', result);
+});
+
+export const verifyCandidateSignupEmailOtp = catchAsync(async (req: Request, res: Response) => {
+  const { email, code } = getRequestBody<{ email: string; code: string }>(req);
+  const result = await authService.verifyCandidateSignupEmailOtp({ email, code });
+  sendSuccess(res, StatusCodes.OK, 'Email verified', result);
+});
+
 export const verifyCandidatePhoneOtpMsg91 = catchAsync(async (req: Request, res: Response) => {
   const { accessToken } = getRequestBody<{ accessToken: string }>(req);
   const result = await authService.verifyCandidatePhoneOtpMsg91({ accessToken });
