@@ -32,6 +32,7 @@ export const updateUserSchema = z.object({
     firstName: z.string().min(2).max(80).optional(),
     lastName: z.string().min(1).max(80).optional(),
     status: z.enum(['active', 'invited', 'suspended']).optional(),
+    roleName: z.enum([ROLE_NAMES.COMPANY_ADMIN, ROLE_NAMES.HR_MANAGER, ROLE_NAMES.RECRUITER, ROLE_NAMES.INTERVIEWER]).or(z.string()).optional(),
   }),
 });
 

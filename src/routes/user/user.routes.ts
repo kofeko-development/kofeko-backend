@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createUser, getUser, inviteUser, listUsers, updateUser } from '../../controllers/user/user.controller';
+import { createUser, getUser, inviteUser, listUsers, updateUser, deleteUser } from '../../controllers/user/user.controller';
 import { authenticate } from '../../common/middlewares/authenticate';
 import { authorize } from '../../common/middlewares/authorize';
 import { validateRequest } from '../../common/middlewares/validateRequest';
@@ -87,6 +87,21 @@ userRouter.patch(
   authorize([PERMISSIONS.USER_UPDATE]),
   validateRequest(updateUserSchema),
   updateUser,
+);
+
+/**
+ * @openapi
+ * /api/v1/users/{id}:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Delete staff user
+ */
+userRouter.delete(
+  '/:id',
+  authenticate,
+  authorize([PERMISSIONS.USER_UPDATE]), // Using USER_UPDATE for deletion as a proxy, since USER_DELETE might not exist
+  validateRequest(userIdParamSchema),
+  deleteUser,
 );
 
 export default userRouter;

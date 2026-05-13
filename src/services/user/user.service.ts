@@ -232,6 +232,43 @@ export const userService = {
 
   async updateUser(id: string, tenantId: string, payload: UpdateUserInput): Promise<User> {
     await this.getUserById(id, tenantId);
-    return userRepository.updateByIdAndTenant(id, tenantId, payload);
+    
+    const { roleName, ...updateData } = payload;
+    
+    if (roleName) {
+      const role = await resolveRoleForTenant(tenantId, roleName);
+      
+      await prisma.$transaction(async (tx) => {
+        await tx.userRole.deleteMany({
+          where: { tenantId, userId: id }
+        });
+        
+        await tx.userRole.create({
+          data: {
+            tenantId,
+            userId: id,
+            roleId: role.id
+          }
+        });
+      });
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      return userRepository.updateByIdAndTenant(id, tenantId, updateData);
+    }
+    
+    return this.getUserById(id, tenantId);
+  },
+
+  async deleteUser(id: string, tenantId: string): Promise<void> {
+    await this.getUserById(id, tenantId);
+    
+    await prisma.$transaction([
+      prisma.userRole.deleteMany({ where: { tenantId, userId: id } }),
+      prisma.inviteToken.deleteMany({ where: { tenantId, userId: id } }),
+      prisma.passwordResetToken.deleteMany({ where: { tenantId, userId: id } }),
+      prisma.session.deleteMany({ where: { tenantId, userId: id } }),
+      prisma.user.delete({ where: { id, tenantId } })
+    ]);
   },
 };
