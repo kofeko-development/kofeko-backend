@@ -65,6 +65,29 @@ async function bootstrapTenantAdminIfEmpty(): Promise<void> {
 
 }
 
+async function bootstrapSuperAdminIfEmpty(): Promise<void> {
+  if (!bootstrapConfig.enabled) {
+    return;
+  }
+
+  const superAdminCount = await prisma.superAdmin.count();
+  if (superAdminCount > 0) {
+    return;
+  }
+
+  const passwordHash = await hashPassword(bootstrapConfig.adminPassword);
+
+  await prisma.superAdmin.create({
+    data: {
+      email: process.env.SEED_SUPERADMIN_EMAIL ?? 'superadmin@demo.com',
+      firstName: 'Super',
+      lastName: 'Admin',
+      passwordHash,
+    },
+  });
+  console.log('Seeded SuperAdmin');
+}
+
 async function seedTenantPermissionsAndAdminRole(): Promise<void> {
   const tenants = await prisma.tenant.findMany({
     select: { id: true },
@@ -124,6 +147,7 @@ async function seedTenantPermissionsAndAdminRole(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  await bootstrapSuperAdminIfEmpty();
   await bootstrapTenantAdminIfEmpty();
   await seedTenantPermissionsAndAdminRole();
 }

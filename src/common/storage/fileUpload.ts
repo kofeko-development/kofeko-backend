@@ -4,12 +4,21 @@ import path from 'node:path';
 
 import admin from 'firebase-admin';
 
-import { AppError } from '../errors/AppError';
-import { ERROR_CODES } from '../errors/errorCodes';
 import { env } from '../../config/env';
 
 function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]+/g, '_');
+}
+
+function uploadLocal(buffer: Buffer, filename: string): string {
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  const key = `${crypto.randomUUID()}-${sanitizeFilename(filename)}`;
+  const outPath = path.join(uploadsDir, key);
+  fs.writeFileSync(outPath, buffer);
+
+  const port = String(env.PORT || 5000);
+  return `http://localhost:${port}/uploads/${key}`;
 }
 
 export async function uploadFile(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
@@ -21,75 +30,74 @@ export async function uploadFile(buffer: Buffer, filename: string, mimeType: str
     const bucket = env.SUPABASE_STORAGE_BUCKET;
 
     if (!supabaseUrl || !serviceRoleKey || !bucket) {
-      throw new AppError(
-        'Supabase storage is not configured. Check SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_STORAGE_BUCKET.',
-        500,
-        ERROR_CODES.STORAGE_ERROR,
-      );
+      console.warn('Supabase storage env missing, falling back to local storage.');
+      return uploadLocal(buffer, filename);
     }
 
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false },
-    });
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false },
+      });
 
-    const key = `uploads/${crypto.randomUUID()}-${sanitizeFilename(filename)}`;
+      const key = `uploads/${crypto.randomUUID()}-${sanitizeFilename(filename)}`;
 
-    const { error: uploadError } = await supabase.storage.from(bucket).upload(key, buffer, {
-      contentType: mimeType,
-      upsert: false,
-    });
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(key, buffer, {
+        contentType: mimeType,
+        upsert: false,
+      });
 
-    if (uploadError) {
-      throw new AppError(`Supabase storage upload failed: ${uploadError.message}`, 500, ERROR_CODES.STORAGE_ERROR);
+      if (uploadError) {
+        console.warn(`Supabase storage upload failed (${uploadError.message}), falling back to local storage.`);
+        return uploadLocal(buffer, filename);
+      }
+
+      const { data } = supabase.storage.from(bucket).getPublicUrl(key);
+
+      if (!data?.publicUrl) {
+        console.warn('Supabase storage returned no public URL, falling back to local storage.');
+        return uploadLocal(buffer, filename);
+      }
+
+      return data.publicUrl;
+    } catch (err) {
+      console.warn('Supabase storage exception, falling back to local storage.', err);
+      return uploadLocal(buffer, filename);
     }
-
-    const { data } = supabase.storage.from(bucket).getPublicUrl(key);
-
-    if (!data?.publicUrl) {
-      throw new AppError('Supabase storage returned no public URL after upload.', 500, ERROR_CODES.STORAGE_ERROR);
-    }
-
-    return data.publicUrl;
   }
 
   if (provider === 'firebase') {
-    if (!admin.apps.length) {
-      const privateKey = env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-      if (!env.FIREBASE_PROJECT_ID || !env.FIREBASE_CLIENT_EMAIL || !privateKey || !env.FIREBASE_STORAGE_BUCKET) {
-        throw new AppError(
-          'Firebase storage env vars are not configured',
-          500,
-          ERROR_CODES.INTERNAL_SERVER_ERROR,
-        );
+    try {
+      if (!admin.apps.length) {
+        const privateKey = env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+        if (!env.FIREBASE_PROJECT_ID || !env.FIREBASE_CLIENT_EMAIL || !privateKey || !env.FIREBASE_STORAGE_BUCKET) {
+          console.warn('Firebase storage env missing, falling back to local storage.');
+          return uploadLocal(buffer, filename);
+        }
+
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: env.FIREBASE_PROJECT_ID,
+            clientEmail: env.FIREBASE_CLIENT_EMAIL,
+            privateKey,
+          }),
+          storageBucket: env.FIREBASE_STORAGE_BUCKET,
+        });
       }
 
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: env.FIREBASE_PROJECT_ID,
-          clientEmail: env.FIREBASE_CLIENT_EMAIL,
-          privateKey,
-        }),
-        storageBucket: env.FIREBASE_STORAGE_BUCKET,
-      });
+      const bucket = admin.storage().bucket();
+      const key = `${crypto.randomUUID()}-${sanitizeFilename(filename)}`;
+      const file = bucket.file(`uploads/${key}`);
+      await file.save(buffer, { metadata: { contentType: mimeType } });
+      await file.makePublic();
+      return file.publicUrl();
+    } catch (err) {
+      console.warn('Firebase storage exception, falling back to local storage.', err);
+      return uploadLocal(buffer, filename);
     }
-
-    const bucket = admin.storage().bucket();
-    const key = `${crypto.randomUUID()}-${sanitizeFilename(filename)}`;
-    const file = bucket.file(`uploads/${key}`);
-    await file.save(buffer, { metadata: { contentType: mimeType } });
-    await file.makePublic();
-    return file.publicUrl();
   }
 
-  // local
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  const key = `${crypto.randomUUID()}-${sanitizeFilename(filename)}`;
-  const outPath = path.join(uploadsDir, key);
-  fs.writeFileSync(outPath, buffer);
-
-  const port = String(env.PORT || 3000);
-  return `http://localhost:${port}/uploads/${key}`;
+  return uploadLocal(buffer, filename);
 }
+// End of fileUpload service
 

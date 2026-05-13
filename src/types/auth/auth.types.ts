@@ -2,6 +2,7 @@ export type JwtPayloadData = {
   sub: string;
   tenantId: string;
   email: string;
+  type?: string;
 };
 
 export type AuthenticatedUser = {

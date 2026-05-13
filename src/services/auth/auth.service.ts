@@ -228,19 +228,26 @@ export const authService = {
     const user = payload.tenantSlug
       ? await authRepository.findUserByTenantSlugAndEmail(payload.tenantSlug, email)
       : await (async () => {
-          const users = await authRepository.findStaffUsersByEmailForLogin(email, { excludeTenantSlug: candidateTenantSlug });
-          if (users.length === 1) return users[0];
-          if (users.length > 1) {
-            throw new AppError(
-              'Multiple accounts found for this email. Please contact support.',
-              StatusCodes.CONFLICT,
-              ERROR_CODES.CONFLICT,
-            );
-          }
-          return null;
-        })();
+        const users = await authRepository.findStaffUsersByEmailForLogin(email, { excludeTenantSlug: candidateTenantSlug });
+        if (users.length === 1) return users[0];
+        if (users.length > 1) {
+          throw new AppError(
+            'Multiple accounts found for this email. Please contact support.',
+            StatusCodes.CONFLICT,
+            ERROR_CODES.CONFLICT,
+          );
+        }
+        return null;
+      })();
 
     if (!user) {
+      const pendingRequest = await authRepository.findPendingCompanyRegistrationRequestByEmail(email);
+      if (pendingRequest && pendingRequest.adminPasswordHash) {
+        const isPasswordValid = await comparePassword(payload.password, pendingRequest.adminPasswordHash);
+        if (isPasswordValid) {
+          throw new AppError('Your company registration is pending approval.', StatusCodes.FORBIDDEN, ERROR_CODES.REGISTRATION_PENDING);
+        }
+      }
       throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
@@ -262,6 +269,7 @@ export const authService = {
       await authRepository.consumeLoginOtp(user.id, user.tenantId);
     }
 
+    // Invited staff may sign in with the emailed temp password; first login activates. Invite email still recommends using accept-invite to set a new password.
     if (user.status === UserStatus.invited) {
       await prisma.user.update({
         where: { id: user.id },
@@ -320,6 +328,7 @@ export const authService = {
       sub: hydratedUser.id,
       tenantId: tenant.id,
       email: hydratedUser.email,
+      type: 'candidate' as const,
     };
 
     const accessToken = signAccessToken(tokenPayload);
@@ -362,6 +371,7 @@ export const authService = {
       sub: user.id,
       tenantId: user.tenantId,
       email: user.email,
+      type: 'candidate' as const,
     };
     const accessToken = signAccessToken(tokenPayload);
     const refreshToken = signRefreshToken(tokenPayload);
@@ -432,6 +442,7 @@ export const authService = {
       sub: user.id,
       tenantId: user.tenantId,
       email: user.email,
+      type: 'candidate' as const,
     };
     const accessToken = signAccessToken(tokenPayload);
     const refreshToken = signRefreshToken(tokenPayload);
@@ -506,6 +517,7 @@ export const authService = {
       sub: user.id,
       tenantId: user.tenantId,
       email: user.email,
+      type: 'candidate' as const,
     };
     const accessToken = signAccessToken(tokenPayload);
     const refreshToken = signRefreshToken(tokenPayload);
@@ -541,6 +553,7 @@ export const authService = {
       sub: decoded.sub,
       tenantId: decoded.tenantId,
       email: decoded.email,
+      type: decoded.type,
     });
 
     return { accessToken: newAccessToken };

@@ -26,7 +26,11 @@ import {
   portalRefresh,
   portalRegisterCandidate,
   portalUpdateProfile,
+  portalParseResume,
 } from '../../controllers/portal/portal.controller';
+import multer from 'multer';
+
+const upload = multer({ storage: multer.memoryStorage() });
 import { authenticateCandidate } from '../../common/middlewares/authenticateCandidate';
 
 const portalRouter = Router();
@@ -121,6 +125,15 @@ portalRouter.get('/auth/me', authenticateCandidate, portalMe);
  *     summary: Update candidate profile (portal)
  */
 portalRouter.patch('/profile', authenticateCandidate, validateRequest(updatePortalProfileSchema), portalUpdateProfile);
+
+/**
+ * @openapi
+ * /api/v1/portal/parse-resume:
+ *   post:
+ *     tags: [Portal]
+ *     summary: Upload and parse candidate resume to auto-fill profile
+ */
+portalRouter.post('/parse-resume', authenticateCandidate, upload.single('resume'), portalParseResume);
 
 /**
  * @openapi

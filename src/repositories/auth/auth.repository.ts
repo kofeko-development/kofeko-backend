@@ -503,6 +503,16 @@ export const authRepository = {
     });
   },
 
+  async findPendingCompanyRegistrationRequestByEmail(adminEmail: string) {
+    return prisma.companyRegistrationRequest.findFirst({
+      where: {
+        adminEmail,
+        status: CompanyRegistrationStatus.pending,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
   async findCompanyRegistrationRequestById(id: string) {
     return prisma.companyRegistrationRequest.findUnique({ where: { id } });
   },

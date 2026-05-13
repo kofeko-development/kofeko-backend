@@ -1,4 +1,4 @@
-import { replicateGpt52JsonCompletion } from './replicateGpt';
+import { openRouterJsonCompletion } from './openRouter';
 import type {
   AnalyzeResult,
   CareerTrajectoryClassification,
@@ -318,7 +318,7 @@ Include one skillMatches entry for each company priority skill listed above (reu
 
 Enforce: hiringIntelligence.relevanceToRole.matchScorePercent === scores.overall.`;
 
-  const raw = await replicateGpt52JsonCompletion({ system: HIRING_ANALYST_SYSTEM, user });
+  const raw = await openRouterJsonCompletion({ system: HIRING_ANALYST_SYSTEM, user });
   if (!raw.trim()) {
     throw new AppError('Empty response from AI provider.', StatusCodes.BAD_GATEWAY, ERROR_CODES.AI_EVALUATION_FAILED);
   }
@@ -402,39 +402,39 @@ function normalizeAnalyzeResult(data: unknown, job: JobForEvaluation): AnalyzeRe
         : [],
       experience: Array.isArray(parsedResume.experience)
         ? parsedResume.experience.map((e) => {
-            const ex = e as Record<string, unknown>;
-            return {
-              company: ex.company != null ? String(ex.company) : undefined,
-              title: ex.title != null ? String(ex.title) : undefined,
-              dates: ex.dates != null ? String(ex.dates) : undefined,
-              highlights: Array.isArray(ex.highlights)
-                ? ex.highlights.map((h) => String(h))
-                : undefined,
-            };
-          })
+          const ex = e as Record<string, unknown>;
+          return {
+            company: ex.company != null ? String(ex.company) : undefined,
+            title: ex.title != null ? String(ex.title) : undefined,
+            dates: ex.dates != null ? String(ex.dates) : undefined,
+            highlights: Array.isArray(ex.highlights)
+              ? ex.highlights.map((h) => String(h))
+              : undefined,
+          };
+        })
         : [],
       education: Array.isArray(parsedResume.education)
         ? parsedResume.education.map((ed) => {
-            const e = ed as Record<string, unknown>;
-            return {
-              institution: e.institution != null ? String(e.institution) : undefined,
-              degree: e.degree != null ? String(e.degree) : undefined,
-              field: e.field != null ? String(e.field) : undefined,
-              dates: e.dates != null ? String(e.dates) : undefined,
-            };
-          })
+          const e = ed as Record<string, unknown>;
+          return {
+            institution: e.institution != null ? String(e.institution) : undefined,
+            degree: e.degree != null ? String(e.degree) : undefined,
+            field: e.field != null ? String(e.field) : undefined,
+            dates: e.dates != null ? String(e.dates) : undefined,
+          };
+        })
         : [],
       projects: Array.isArray(parsedResume.projects)
         ? parsedResume.projects.map((p) => {
-            const pr = p as Record<string, unknown>;
-            return {
-              name: pr.name != null ? String(pr.name) : undefined,
-              description: pr.description != null ? String(pr.description) : undefined,
-              technologies: Array.isArray(pr.technologies)
-                ? pr.technologies.map((t) => String(t))
-                : undefined,
-            };
-          })
+          const pr = p as Record<string, unknown>;
+          return {
+            name: pr.name != null ? String(pr.name) : undefined,
+            description: pr.description != null ? String(pr.description) : undefined,
+            technologies: Array.isArray(pr.technologies)
+              ? pr.technologies.map((t) => String(t))
+              : undefined,
+          };
+        })
         : [],
       hobbies: Array.isArray(parsedResume.hobbies)
         ? parsedResume.hobbies.map((h) => String(h))
