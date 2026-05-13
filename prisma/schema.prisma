@@ -315,6 +315,11 @@ model Candidate {
   currentCompany   String?
   yearsOfExperience Float?
   status           CandidateStatus  @default(new)
+  summary          String?
+  education        Json?
+  workExperience   Json?
+  projects         Json?
+  hobbies          Json?
   applications     Pipeline[]
   evaluations      Evaluation[]
   createdAt        DateTime         @default(now())

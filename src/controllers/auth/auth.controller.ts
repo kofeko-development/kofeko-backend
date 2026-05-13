@@ -44,10 +44,10 @@ export const verifyCompanySignupEmailOtp = catchAsync(async (req: Request, res: 
   sendSuccess(res, StatusCodes.OK, 'Email verified', result);
 });
 
-export const verifyCandidatePhoneOtpFirebase = catchAsync(async (req: Request, res: Response) => {
-  const { idToken } = getRequestBody<{ idToken: string }>(req);
-  const result = await authService.verifyCandidatePhoneOtpFirebase({ idToken });
-  sendSuccess(res, StatusCodes.OK, 'Phone verified via Firebase', result);
+export const verifyCandidatePhoneOtpMsg91 = catchAsync(async (req: Request, res: Response) => {
+  const { accessToken } = getRequestBody<{ accessToken: string }>(req);
+  const result = await authService.verifyCandidatePhoneOtpMsg91({ accessToken });
+  sendSuccess(res, StatusCodes.OK, 'Phone verified via MSG91', result);
 });
 
 export const login = catchAsync(async (req: Request, res: Response) => {

@@ -347,7 +347,7 @@ export const authRepository = {
     });
   },
 
-  async findUserByIdAndTenant(id: string, tenantId: string): Promise<(User & { tenant: Tenant }) | null> {
+  async findUserByIdAndTenant(id: string, tenantId: string): Promise<any | null> {
     return prisma.user.findFirst({
       where: { id, tenantId },
       include: {

@@ -29,9 +29,9 @@ export const verifyCompanySignupEmailOtpSchema = z.object({
   }),
 });
 
-export const verifyCandidatePhoneOtpFirebaseSchema = z.object({
+export const verifyCandidatePhoneOtpMsg91Schema = z.object({
   body: z.object({
-    idToken: z.string().min(10, 'Firebase ID token is required'),
+    accessToken: z.string().min(10, 'MSG91 access token is required'),
   }),
 });
 

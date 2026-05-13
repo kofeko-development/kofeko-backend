@@ -15,7 +15,7 @@ import {
   resetPassword,
   sendCompanySignupEmailOtp,
   verifyCompanySignupEmailOtp,
-  verifyCandidatePhoneOtpFirebase,
+  verifyCandidatePhoneOtpMsg91,
 } from '../../controllers/auth/auth.controller';
 import { authenticate } from '../../common/middlewares/authenticate';
 import { validateRequest } from '../../common/middlewares/validateRequest';
@@ -34,7 +34,7 @@ import {
   resetPasswordSchema,
   sendCompanySignupEmailOtpSchema,
   verifyCompanySignupEmailOtpSchema,
-  verifyCandidatePhoneOtpFirebaseSchema,
+  verifyCandidatePhoneOtpMsg91Schema,
 } from '../../validations/auth/auth.validation';
 
 const authRouter = Router();
@@ -78,9 +78,9 @@ authRouter.post(
 );
 
 authRouter.post(
-  '/candidate-phone-otp/verify-firebase',
-  validateRequest(verifyCandidatePhoneOtpFirebaseSchema),
-  verifyCandidatePhoneOtpFirebase,
+  '/candidate-phone-otp/verify-msg91',
+  validateRequest(verifyCandidatePhoneOtpMsg91Schema),
+  verifyCandidatePhoneOtpMsg91,
 );
 
 /**

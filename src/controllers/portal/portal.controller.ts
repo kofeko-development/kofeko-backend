@@ -151,6 +151,11 @@ export const portalUpdateProfile = catchAsync(async (req: Request, res: Response
     noticePeriod?: number;
     skills?: string[];
     location?: string;
+    summary?: string;
+    education?: any[];
+    workExperience?: any[];
+    projects?: any[];
+    hobbies?: string[];
   }>(req);
   const result = await portalProfileService.updateProfile(candidateId, tenantId, payload);
   sendSuccess(res, StatusCodes.OK, 'Profile updated', result);
@@ -189,6 +194,11 @@ export const portalParseResume = catchAsync(async (req: Request, res: Response) 
     data: {
       resumeUrl,
       resumeMimeType: file.mimetype,
+      summary: parsed.summary || undefined,
+      education: parsed.education.length > 0 ? parsed.education : undefined,
+      workExperience: parsed.experience.length > 0 ? parsed.experience : undefined,
+      projects: parsed.projects.length > 0 ? parsed.projects : undefined,
+      hobbies: parsed.hobbies.length > 0 ? parsed.hobbies : undefined,
       skills: parsed.skills.length > 0 ? parsed.skills : undefined,
     },
   });

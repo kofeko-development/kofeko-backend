@@ -17,6 +17,11 @@ export const portalProfileService = {
       noticePeriod?: number;
       skills?: string[];
       location?: string;
+      summary?: string;
+      education?: any[];
+      workExperience?: any[];
+      projects?: any[];
+      hobbies?: string[];
     },
   ) {
     const updated = await prisma.candidate.updateMany({
@@ -31,6 +36,11 @@ export const portalProfileService = {
         noticePeriod: payload.noticePeriod,
         skills: payload.skills,
         location: payload.location,
+        summary: payload.summary,
+        education: payload.education,
+        workExperience: payload.workExperience,
+        projects: payload.projects,
+        hobbies: payload.hobbies,
       },
     });
 
@@ -55,6 +65,11 @@ export const portalProfileService = {
         noticePeriod: true,
         skills: true,
         location: true,
+        summary: true,
+        education: true,
+        workExperience: true,
+        projects: true,
+        hobbies: true,
         yearsOfExperience: true,
         lastLoginAt: true,
         createdAt: true,
