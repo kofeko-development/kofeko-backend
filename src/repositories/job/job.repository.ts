@@ -47,4 +47,12 @@ export const jobRepository = {
       data,
     });
   },
+
+  async deleteByIdAndTenant(id: string, tenantId: string): Promise<void> {
+    const current = await prisma.job.findFirst({ where: { id, tenantId } });
+    if (!current) {
+      throw new AppError('Job not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+    await prisma.job.delete({ where: { id: current.id } });
+  },
 };

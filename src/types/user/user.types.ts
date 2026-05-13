@@ -28,4 +28,5 @@ export type UpdateUserInput = Partial<{
   firstName: string;
   lastName: string;
   status: UserStatus;
+  roleName: string;
 }>;

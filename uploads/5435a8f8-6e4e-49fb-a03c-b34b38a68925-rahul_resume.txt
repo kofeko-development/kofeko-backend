@@ -1,0 +1,7 @@
+Rahul Mehta
+Full Stack Developer
+Skills: React, TypeScript, Node.js, Next.js, PostgreSQL
+Experience:
+- Senior Developer at TechCorp (2020-2024): Built high-performance React applications using Next.js and TypeScript.
+- Junior Developer at WebSoft (2018-2020): Worked on Node.js backends and PostgreSQL databases.
+Education: B.Tech in Computer Science from IIT Mumbai.

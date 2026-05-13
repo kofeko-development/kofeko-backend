@@ -6,6 +6,7 @@ import { PERMISSIONS } from '../../common/constants/permissions';
 import {
   closeJob,
   createJob,
+  deleteJob,
   evaluateAllForJob,
   getJob,
   getJobRankings,
@@ -127,6 +128,21 @@ jobRouter.post(
   authorize([PERMISSIONS.JOB_UPDATE]),
   validateRequest(jobIdParamSchema),
   closeJob,
+);
+
+/**
+ * @openapi
+ * /api/v1/jobs/{id}:
+ *   delete:
+ *     tags: [Jobs]
+ *     summary: Delete draft job
+ */
+jobRouter.delete(
+  '/:id',
+  authenticate,
+  authorize([PERMISSIONS.JOB_UPDATE]),
+  validateRequest(jobIdParamSchema),
+  deleteJob,
 );
 
 /**

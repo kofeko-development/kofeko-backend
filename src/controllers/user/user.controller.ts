@@ -61,3 +61,13 @@ export const updateUser = catchAsync(async (req: Request, res: Response) => {
 
   sendSuccess(res, StatusCodes.OK, 'User updated successfully', sanitizeUser(result));
 });
+
+export const deleteUser = catchAsync(async (req: Request, res: Response) => {
+  const { params } = req;
+  const userId = requireStringValue(params.id, 'userId');
+  const tenantId = String(req.user?.tenantId);
+  
+  await userService.deleteUser(userId, tenantId);
+
+  sendSuccess(res, StatusCodes.OK, 'User deleted successfully', null);
+});
