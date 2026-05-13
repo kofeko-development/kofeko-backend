@@ -9,6 +9,12 @@ import {
   JwtPayloadData,
 } from '../../types/auth/auth.types';
 
+export const CANDIDATE_PHONE_VERIFICATION_JWT_TYP = 'kofeko.candidate-phone-verification.v1';
+export interface CandidatePhoneVerificationJwtPayload {
+  typ: typeof CANDIDATE_PHONE_VERIFICATION_JWT_TYP;
+  phoneNumber: string;
+}
+
 const accessTokenExpiresIn = env.JWT_ACCESS_EXPIRES_IN as jwt.SignOptions['expiresIn'];
 const refreshTokenExpiresIn = env.JWT_REFRESH_EXPIRES_IN as jwt.SignOptions['expiresIn'];
 
@@ -47,5 +53,27 @@ export const verifyCompanyRegistrationEmailToken = (token: string): CompanyRegis
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw new AppError('Invalid or expired email verification', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+};
+
+export const signCandidatePhoneVerificationToken = (phoneNumber: string): string => {
+  const normalized = phoneNumber.trim();
+  return jwt.sign(
+    { typ: CANDIDATE_PHONE_VERIFICATION_JWT_TYP, phoneNumber: normalized } satisfies CandidatePhoneVerificationJwtPayload,
+    env.JWT_ACCESS_SECRET,
+    { expiresIn: '30m' },
+  );
+};
+
+export const verifyCandidatePhoneVerificationToken = (token: string): CandidatePhoneVerificationJwtPayload => {
+  try {
+    const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as jwt.JwtPayload & Partial<CandidatePhoneVerificationJwtPayload>;
+    if (decoded.typ !== CANDIDATE_PHONE_VERIFICATION_JWT_TYP || typeof decoded.phoneNumber !== 'string' || !decoded.phoneNumber.trim()) {
+      throw new AppError('Invalid phone verification token', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+    return { typ: CANDIDATE_PHONE_VERIFICATION_JWT_TYP, phoneNumber: decoded.phoneNumber.trim() };
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError('Invalid or expired phone verification', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
   }
 };

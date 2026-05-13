@@ -15,6 +15,7 @@ import {
   resetPassword,
   sendCompanySignupEmailOtp,
   verifyCompanySignupEmailOtp,
+  verifyCandidatePhoneOtpFirebase,
 } from '../../controllers/auth/auth.controller';
 import { authenticate } from '../../common/middlewares/authenticate';
 import { validateRequest } from '../../common/middlewares/validateRequest';
@@ -33,6 +34,7 @@ import {
   resetPasswordSchema,
   sendCompanySignupEmailOtpSchema,
   verifyCompanySignupEmailOtpSchema,
+  verifyCandidatePhoneOtpFirebaseSchema,
 } from '../../validations/auth/auth.validation';
 
 const authRouter = Router();
@@ -73,6 +75,12 @@ authRouter.post(
   '/register-company-email-otp/verify',
   validateRequest(verifyCompanySignupEmailOtpSchema),
   verifyCompanySignupEmailOtp,
+);
+
+authRouter.post(
+  '/candidate-phone-otp/verify-firebase',
+  validateRequest(verifyCandidatePhoneOtpFirebaseSchema),
+  verifyCandidatePhoneOtpFirebase,
 );
 
 /**

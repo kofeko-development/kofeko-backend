@@ -29,6 +29,12 @@ export const verifyCompanySignupEmailOtpSchema = z.object({
   }),
 });
 
+export const verifyCandidatePhoneOtpFirebaseSchema = z.object({
+  body: z.object({
+    idToken: z.string().min(10, 'Firebase ID token is required'),
+  }),
+});
+
 export const registerCompanyRequestSchema = z.object({
   body: z.object({
     companyName: z.string().min(2, 'Company name must be at least 2 characters').max(160),

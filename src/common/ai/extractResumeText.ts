@@ -23,31 +23,29 @@ export async function extractResumeText(
   if (mimeType === "application/pdf" || lower.endsWith(".pdf")) {
     try {
       const rawPdfParse = require("pdf-parse");
-      let pdfParseFunc: any = null;
-      if (typeof rawPdfParse === 'function') {
-        pdfParseFunc = rawPdfParse;
-      } else if (rawPdfParse && typeof rawPdfParse.default === 'function') {
-        pdfParseFunc = rawPdfParse.default;
-      } else if (rawPdfParse) {
-        for (const key in rawPdfParse) {
-          if (typeof rawPdfParse[key] === 'function') {
-            pdfParseFunc = rawPdfParse[key];
-            break;
-          }
-        }
-      } 
-
-      if (pdfParseFunc) {
-        const data = await pdfParseFunc(buffer);
+      if (rawPdfParse && rawPdfParse.PDFParse) {
+        const parser = new rawPdfParse.PDFParse({ data: buffer });
+        const data = await parser.getText();
         const text = (data?.text || "").trim();
         if (text) return text;
+      } else {
+        let pdfParseFunc: any = null;
+        if (typeof rawPdfParse === 'function') {
+          pdfParseFunc = rawPdfParse;
+        } else if (rawPdfParse && typeof rawPdfParse.default === 'function') {
+          pdfParseFunc = rawPdfParse.default;
+        }
+        if (pdfParseFunc) {
+          const data = await pdfParseFunc(buffer);
+          const text = (data?.text || "").trim();
+          if (text) return text;
+        }
       }
     } catch (err) {
       console.warn("pdf-parse extraction exception, using robust fallback stream extraction.", err);
     }
 
     // Bulletproof Fallback: extract all readable ASCII text/strings directly from the PDF binary streams
-    // so OpenRouter AI can intelligently parse the text without crashing with a 500 error!
     const rawString = buffer.toString("utf-8").replace(/[^\x20-\x7E\n]/g, " ").replace(/\s+/g, " ");
     return `Candidate Resume Document (${filename})\n\nExtracted Content Streams:\n${rawString.slice(0, 10000)}`;
   }

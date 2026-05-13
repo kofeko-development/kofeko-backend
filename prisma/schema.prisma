@@ -435,6 +435,19 @@ model CompanySignupEmailOtp {
   @@index([email])
 }
 
+/// One-time codes for candidate phone verification.
+model CandidatePhoneOtp {
+  id          String    @id @default(uuid())
+  phoneNumber String
+  codeHash    String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([phoneNumber])
+}
+
 model CompanyRegistrationRequest {
   id                     String                    @id @default(uuid())
   companyName            String

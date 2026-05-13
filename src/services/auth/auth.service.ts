@@ -12,6 +12,7 @@ import {
   signRefreshToken,
   verifyCompanyRegistrationEmailToken,
   verifyRefreshToken,
+  signCandidatePhoneVerificationToken,
 } from '../../common/auth/jwt';
 import { PERMISSIONS } from '../../common/constants/permissions';
 import { sendEmail } from '../../common/email/emailProvider';
@@ -145,6 +146,28 @@ export const authService = {
     await authRepository.markCompanySignupOtpConsumed(otp.id);
     const emailVerificationToken = signCompanyRegistrationEmailToken(email);
     return { emailVerificationToken };
+  },
+
+  async verifyCandidatePhoneOtpFirebase(payload: { idToken: string }): Promise<{ phoneVerificationToken: string }> {
+    const { idToken } = payload;
+    if (!idToken) {
+      throw new AppError('Firebase ID token is required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    let decodedToken;
+    try {
+      decodedToken = await getFirebaseAdmin().auth().verifyIdToken(idToken);
+    } catch (error) {
+      throw new AppError('Invalid or expired Firebase ID token', StatusCodes.UNAUTHORIZED, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const phoneNumber = decodedToken.phone_number;
+    if (!phoneNumber) {
+      throw new AppError('No phone number associated with this Firebase credential', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const phoneVerificationToken = signCandidatePhoneVerificationToken(phoneNumber);
+    return { phoneVerificationToken };
   },
 
   async registerCompanyRequest(payload: RegisterCompanyRequestInput) {
