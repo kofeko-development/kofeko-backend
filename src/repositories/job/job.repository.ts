@@ -27,6 +27,11 @@ export const jobRepository = {
     const [items, total] = await Promise.all([
       prisma.job.findMany({
         where,
+        include: {
+          _count: {
+            select: { applications: true },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,

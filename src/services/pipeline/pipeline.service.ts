@@ -72,7 +72,7 @@ export const pipelineService = {
   async getPipelineById(
     id: string,
     tenantId: string,
-  ): Promise<Pipeline & { candidate: { firstName: string; lastName: string; email: string }; job: { title: string } }> {
+  ): Promise<Pipeline & { candidate: { firstName: string; lastName: string; email: string }; job: { title: string }; evaluations: any[] }> {
     const pipeline = await pipelineRepository.findByIdAndTenantWithRelations(id, tenantId);
     if (!pipeline) {
       throw new AppError('Pipeline record not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
@@ -85,7 +85,11 @@ export const pipelineService = {
     input: { filters: PipelineListFilters; pagination: PaginationInput },
   ): Promise<{
     items: Array<
-      Pipeline & { candidate: { firstName: string; lastName: string; email: string }; job: { title: string } }
+      Pipeline & {
+        candidate: { firstName: string; lastName: string; email: string };
+        job: { title: string };
+        evaluations: any[];
+      }
     >;
     total: number;
     page: number;

@@ -19,13 +19,13 @@ export const portalJobService = {
       status: 'open' as const,
       ...(input.search
         ? {
-            OR: [
-              { title: { contains: input.search, mode: 'insensitive' as const } },
-              { description: { contains: input.search, mode: 'insensitive' as const } },
-              { tenant: { name: { contains: input.search, mode: 'insensitive' as const } } },
-              { tenant: { slug: { contains: input.search, mode: 'insensitive' as const } } },
-            ],
-          }
+          OR: [
+            { title: { contains: input.search, mode: 'insensitive' as const } },
+            { description: { contains: input.search, mode: 'insensitive' as const } },
+            { tenant: { name: { contains: input.search, mode: 'insensitive' as const } } },
+            { tenant: { slug: { contains: input.search, mode: 'insensitive' as const } } },
+          ],
+        }
         : {}),
     };
 
@@ -76,11 +76,11 @@ export const portalJobService = {
       ...(input.department ? { department: input.department } : {}),
       ...(input.search
         ? {
-            OR: [
-              { title: { contains: input.search, mode: 'insensitive' as const } },
-              { description: { contains: input.search, mode: 'insensitive' as const } },
-            ],
-          }
+          OR: [
+            { title: { contains: input.search, mode: 'insensitive' as const } },
+            { description: { contains: input.search, mode: 'insensitive' as const } },
+          ],
+        }
         : {}),
     };
 
@@ -165,6 +165,15 @@ export const portalJobService = {
             id: true,
             slug: true,
             name: true,
+            company: {
+              select: {
+                industry: true,
+                companySize: true,
+                companyType: true,
+                companyLogo: true,
+                shortDescription: true,
+              },
+            },
           },
         },
       },

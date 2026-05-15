@@ -96,37 +96,136 @@ export const portalGetAnyJob = catchAsync(async (req: Request, res: Response) =>
 });
 
 export const portalApplyToJob = catchAsync(async (req: Request, res: Response) => {
-  const candidateId = String(req.candidate?.candidateId);
-  const tenantId = String(req.candidate?.tenantId);
+  const loggedInCandidateId = String(req.candidate?.candidateId);
   const jobId = requireStringValue(req.params.jobId, 'jobId');
   const tenantSlug = requireStringValue(req.params.tenantSlug, 'tenantSlug');
 
-  const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug }, select: { id: true } });
-  if (!tenant) {
-    throw new AppError('Company not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
-  }
-  if (tenant.id !== tenantId) {
+  // 1. Resolve the TARGET tenant
+  const targetTenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug }, select: { id: true } });
+  if (!targetTenant) {
     throw new AppError('Company not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
   }
 
+  // 2. Get the logged-in candidate's profile
+  const sourceCandidate = await prisma.candidate.findUnique({
+    where: { id: loggedInCandidateId },
+  });
+  if (!sourceCandidate) {
+    throw new AppError('Candidate profile not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  // 3. Ensure candidate exists in TARGET tenant (sync if needed)
+  const candidateData = {
+    firstName: sourceCandidate.firstName,
+    lastName: sourceCandidate.lastName,
+    passwordHash: sourceCandidate.passwordHash,
+    phoneNumber: sourceCandidate.phoneNumber,
+    resumeUrl: sourceCandidate.resumeUrl,
+    resumeMimeType: sourceCandidate.resumeMimeType,
+    linkedinUrl: sourceCandidate.linkedinUrl,
+    portfolioUrl: sourceCandidate.portfolioUrl,
+    location: sourceCandidate.location,
+    summary: sourceCandidate.summary,
+    skills: sourceCandidate.skills,
+    education: sourceCandidate.education || undefined,
+    workExperience: sourceCandidate.workExperience || undefined,
+    projects: sourceCandidate.projects || undefined,
+    hobbies: sourceCandidate.hobbies || undefined,
+    yearsOfExperience: sourceCandidate.yearsOfExperience,
+    source: sourceCandidate.source,
+    currentCompany: sourceCandidate.currentCompany,
+  };
+
+  const targetCandidate = await prisma.candidate.upsert({
+    where: {
+      tenantId_email: {
+        tenantId: targetTenant.id,
+        email: sourceCandidate.email,
+      },
+    },
+    update: candidateData,
+    create: {
+      ...candidateData,
+      tenantId: targetTenant.id,
+      email: sourceCandidate.email,
+      status: 'new',
+    },
+  });
+
   const payload = getRequestBody<{ resumeUrl?: string; resumeMimeType?: string; coverLetter?: string }>(req);
-  const result = await portalApplicationService.applyToJob(candidateId, tenantId, jobId, payload);
+
+  // 4. Submit application using target candidate and target tenant
+  const result = await portalApplicationService.applyToJob(targetCandidate.id, targetTenant.id, jobId, payload);
   sendSuccess(res, StatusCodes.CREATED, 'Application submitted', result);
 });
 
 export const portalMyApplications = catchAsync(async (req: Request, res: Response) => {
-  const candidateId = String(req.candidate?.candidateId);
-  const tenantId = String(req.candidate?.tenantId);
+  const loggedInCandidateId = String(req.candidate?.candidateId);
   const pagination = parsePagination(req.query.page, req.query.limit);
-  const result = await portalApplicationService.getMyApplications(candidateId, tenantId, {
+
+  // 1. Get the current candidate's email
+  const currentCandidate = await prisma.candidate.findUnique({
+    where: { id: loggedInCandidateId },
+    select: { email: true },
+  });
+
+  if (!currentCandidate) {
+    throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  // 2. Find ALL candidate IDs associated with this email across ALL tenants
+  const allCandidateRecords = await prisma.candidate.findMany({
+    where: { email: currentCandidate.email },
+    select: { id: true },
+  });
+  const allIds = allCandidateRecords.map(c => c.id);
+
+  // 3. Fetch applications for ALL those IDs
+  const skip = (pagination.page - 1) * pagination.limit;
+  const where = { candidateId: { in: allIds } };
+
+  const [total, items] = await Promise.all([
+    prisma.pipeline.count({ where }),
+    prisma.pipeline.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: pagination.limit,
+      select: {
+        id: true,
+        stage: true,
+        createdAt: true,
+        updatedAt: true,
+        job: {
+          select: {
+            id: true,
+            title: true,
+            department: true,
+            tenant: {
+              select: { name: true }
+            }
+          },
+        },
+      },
+    }),
+  ]);
+
+  const mapped = items.map((row) => ({
+    pipelineId: row.id,
+    job: {
+      ...row.job,
+      company: row.job.tenant.name // Add company name for UI
+    },
+    stage: row.stage,
+    appliedAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }));
+
+  sendPaginated(res, StatusCodes.OK, {
+    items: mapped,
+    total,
     page: pagination.page,
     limit: pagination.limit,
-  });
-  sendPaginated(res, StatusCodes.OK, {
-    items: result.items,
-    total: result.total,
-    page: result.page,
-    limit: result.limit,
   });
 });
 

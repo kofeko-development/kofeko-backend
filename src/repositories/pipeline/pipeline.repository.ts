@@ -18,11 +18,11 @@ export const pipelineRepository = {
   async findByIdAndTenantWithRelations(
     id: string,
     tenantId: string,
-  ): Promise<(Pipeline & { candidate: { firstName: string; lastName: string; email: string; resumeUrl: string | null; resumeMimeType: string | null }; job: { title: string }; evaluations: any[] }) | null> {
+  ): Promise<(Pipeline & { candidate: { firstName: string; lastName: string; email: string; phoneNumber: string | null; resumeUrl: string | null; resumeMimeType: string | null; linkedinUrl: string | null; portfolioUrl: string | null; location: string | null; skills: string[]; yearsOfExperience: number | null }; job: { title: string }; evaluations: any[] }) | null> {
     return prisma.pipeline.findFirst({
       where: { id, tenantId },
       include: {
-        candidate: { select: { firstName: true, lastName: true, email: true, resumeUrl: true, resumeMimeType: true } },
+        candidate: { select: { firstName: true, lastName: true, email: true, phoneNumber: true, resumeUrl: true, resumeMimeType: true, linkedinUrl: true, portfolioUrl: true, location: true, skills: true, yearsOfExperience: true } },
         job: { select: { title: true } },
         evaluations: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
@@ -39,7 +39,7 @@ export const pipelineRepository = {
     pagination: PaginationInput,
   ): Promise<{
     items: Array<
-      Pipeline & { candidate: { firstName: string; lastName: string; email: string }; job: { title: string } }
+      Pipeline & { candidate: { firstName: string; lastName: string; email: string; phoneNumber: string | null; resumeUrl: string | null; resumeMimeType: string | null; linkedinUrl: string | null; portfolioUrl: string | null; location: string | null; skills: string[]; yearsOfExperience: number | null }; job: { title: string } }
     >;
     total: number;
   }> {
@@ -53,7 +53,7 @@ export const pipelineRepository = {
       prisma.pipeline.findMany({
         where,
         include: {
-          candidate: { select: { firstName: true, lastName: true, email: true, resumeUrl: true, resumeMimeType: true } },
+          candidate: { select: { firstName: true, lastName: true, email: true, phoneNumber: true, resumeUrl: true, resumeMimeType: true, linkedinUrl: true, portfolioUrl: true, location: true, skills: true, yearsOfExperience: true } },
           job: { select: { title: true } },
           evaluations: { orderBy: { createdAt: 'desc' }, take: 1 },
         },
