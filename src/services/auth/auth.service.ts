@@ -109,9 +109,9 @@ export const authService = {
     if (latest && !latest.consumedAt && elapsed < cooldownMs) {
       const waitSec = Math.max(1, Math.ceil((cooldownMs - elapsed) / 1000));
       throw new AppError(
-        `A verification code was just sent to this email. Try again in ${waitSec}s (rate limit to prevent abuse).`,
+        `A verification code was just sent. Please wait ${waitSec} seconds before requesting another.`,
         StatusCodes.TOO_MANY_REQUESTS,
-        ERROR_CODES.VALIDATION_ERROR,
+        ERROR_CODES.OTP_RATE_LIMITED,
       );
     }
 
@@ -140,17 +140,17 @@ export const authService = {
 
     const otp = await authRepository.findActiveCompanySignupOtp(email);
     if (!otp) {
-      throw new AppError('Code expired or not found. Request a new code.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError('Verification code has expired. Request a new one.', StatusCodes.BAD_REQUEST, ERROR_CODES.OTP_EXPIRED);
     }
 
     if (otp.attempts >= COMPANY_SIGNUP_OTP_MAX_ATTEMPTS) {
-      throw new AppError('Too many attempts. Request a new code.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError('Too many incorrect attempts. Please request a new code.', StatusCodes.BAD_REQUEST, ERROR_CODES.OTP_MAX_ATTEMPTS);
     }
 
     const expectedHash = hashCompanySignupOtpCode(email, code);
     if (expectedHash !== otp.codeHash) {
       await authRepository.incrementCompanySignupOtpAttempts(otp.id);
-      throw new AppError('Invalid verification code', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError('Incorrect verification code. Please check the code in your email.', StatusCodes.BAD_REQUEST, ERROR_CODES.OTP_INVALID);
     }
 
     await authRepository.markCompanySignupOtpConsumed(otp.id);
@@ -295,22 +295,64 @@ export const authService = {
       })();
 
     if (!user) {
-      const pendingRequest = await authRepository.findPendingCompanyRegistrationRequestByEmail(email);
-      if (pendingRequest && pendingRequest.adminPasswordHash) {
-        const isPasswordValid = await comparePassword(payload.password, pendingRequest.adminPasswordHash);
-        if (isPasswordValid) {
-          throw new AppError('Your company registration is pending approval.', StatusCodes.FORBIDDEN, ERROR_CODES.REGISTRATION_PENDING);
+      // Check if this email has a pending company registration request
+      const pendingRequest = await prisma.companyRegistrationRequest.findFirst({
+        where: {
+          adminEmail: email,
+          status: { in: ['pending', 'under_review' as any] }
         }
+      });
+
+      if (pendingRequest) {
+        throw new AppError(
+          'Your company registration is pending approval. You will receive an email once approved.',
+          StatusCodes.FORBIDDEN,
+          ERROR_CODES.APPROVAL_PENDING
+        );
       }
+
+      const rejectedRequest = await prisma.companyRegistrationRequest.findFirst({
+        where: { adminEmail: email, status: 'rejected' }
+      });
+
+      if (rejectedRequest) {
+        throw new AppError(
+          'Your company registration request was not approved. Please contact support.',
+          StatusCodes.FORBIDDEN,
+          ERROR_CODES.APPROVAL_REJECTED
+        );
+      }
+
       throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    // If user found but belongs to candidate tenant — wrong portal
+    if (user.tenant.slug === (process.env.CANDIDATE_TENANT_SLUG ?? 'kofeko-candidates')) {
+      throw new AppError(
+        'This email is registered as a candidate account. Please use the candidate login instead.',
+        StatusCodes.FORBIDDEN,
+        ERROR_CODES.WRONG_PORTAL
+      );
     }
 
     if (user.tenant.status === 'suspended') {
       throw new AppError('This account has been suspended. Contact support.', StatusCodes.FORBIDDEN, ERROR_CODES.TENANT_SUSPENDED);
     }
 
+    if (user.status === UserStatus.suspended) {
+      throw new AppError(
+        'Your account has been suspended. Contact your company admin.',
+        StatusCodes.FORBIDDEN,
+        ERROR_CODES.USER_SUSPENDED
+      );
+    }
+
     if (user.status !== UserStatus.active && user.status !== UserStatus.invited) {
-      throw new AppError('User is not active', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
+      throw new AppError(
+        'Your account is not active. Contact your company admin.',
+        StatusCodes.FORBIDDEN,
+        ERROR_CODES.FORBIDDEN
+      );
     }
 
     const isPasswordValid = await comparePassword(payload.password, user.passwordHash);
@@ -319,17 +361,13 @@ export const authService = {
       throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
-    if (user.otpRequired) {
-      await authRepository.consumeLoginOtp(user.id, user.tenantId);
-    }
-
-    // Invited staff may sign in with the emailed temp password; first login activates. Invite email still recommends using accept-invite to set a new password.
     if (user.status === UserStatus.invited) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { status: UserStatus.active },
-      });
-      user.status = UserStatus.active;
+      // Do NOT auto-activate here. They must use the invite link.
+      throw new AppError(
+        'Please accept your invitation first. Check your email for the invite link to set your password.',
+        StatusCodes.FORBIDDEN,
+        ERROR_CODES.ACCOUNT_INVITED_ONLY
+      );
     }
 
     const tokenPayload = {
@@ -682,15 +720,27 @@ export const authService = {
     const inviteToken = await authRepository.findInviteTokenByToken(tokenHash);
 
     if (!inviteToken) {
-      throw new AppError('Invalid invite token', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'Invalid invite link. Request a new invitation from your admin.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.INVITE_TOKEN_INVALID
+      );
     }
 
     if (inviteToken.usedAt) {
-      throw new AppError('Invite token has already been used', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'This invite link has already been used. Try logging in, or ask your admin to resend.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.INVITE_TOKEN_USED
+      );
     }
 
     if (inviteToken.expiresAt.getTime() < Date.now()) {
-      throw new AppError('Invite token has expired', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'This invite link has expired (valid for 72 hours). Ask your admin to send a new invitation.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.INVITE_TOKEN_EXPIRED
+      );
     }
 
     const passwordHash = await hashPassword(payload.password);
@@ -771,15 +821,27 @@ export const authService = {
     const resetToken = await authRepository.findPasswordResetTokenByToken(tokenHash);
 
     if (!resetToken) {
-      throw new AppError('Invalid reset token', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'Invalid reset link. Request a new password reset from the login page.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.RESET_TOKEN_INVALID
+      );
     }
 
     if (resetToken.usedAt) {
-      throw new AppError('Reset token has already been used', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'This reset link has already been used. Request a new password reset if needed.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.RESET_TOKEN_USED
+      );
     }
 
     if (resetToken.expiresAt.getTime() < Date.now()) {
-      throw new AppError('Reset token has expired', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'This reset link has expired (valid for 1 hour). Request a new password reset.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.RESET_TOKEN_EXPIRED
+      );
     }
 
     const passwordHash = await hashPassword(payload.password);

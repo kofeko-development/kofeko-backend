@@ -47,7 +47,11 @@ export const jobService = {
   async updateJob(id: string, tenantId: string, payload: UpdateJobInput, actorId?: string): Promise<Job> {
     const currentJob = await this.getJobById(id, tenantId);
     if (currentJob.status === 'closed') {
-      throw new AppError('Closed jobs cannot be updated', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'Closed jobs cannot be edited. Create a new job instead.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.JOB_IS_CLOSED,
+      );
     }
     const updatedJob = await jobRepository.updateByIdAndTenant(id, tenantId, payload);
     await auditService.createAuditLog({
@@ -64,7 +68,11 @@ export const jobService = {
   async publishJob(id: string, tenantId: string, actorId?: string): Promise<Job> {
     const currentJob = await this.getJobById(id, tenantId);
     if (currentJob.status === 'closed') {
-      throw new AppError('Closed jobs cannot be reopened', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'Closed jobs cannot be reopened. Create a new job if you want to hire for this role again.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.JOB_IS_CLOSED,
+      );
     }
     if (currentJob.status === 'open') return currentJob;
     const updated = await jobRepository.updateByIdAndTenant(id, tenantId, { status: 'open' } satisfies { status: Job['status'] });

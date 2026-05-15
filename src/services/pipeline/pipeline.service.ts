@@ -39,8 +39,26 @@ export const pipelineService = {
     if (!job) {
       throw new AppError('Job not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
-    if (job.status !== 'open') {
-      throw new AppError('Job must be open to create a pipeline', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    if (job.status === 'draft') {
+      throw new AppError(
+        'This job has not been published yet. Publish the job before adding candidates.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.JOB_NOT_OPEN,
+      );
+    }
+    if (job.status === 'paused') {
+      throw new AppError(
+        'This job is currently paused. Resume the job to add new candidates.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.JOB_NOT_OPEN,
+      );
+    }
+    if (job.status === 'closed') {
+      throw new AppError(
+        'This job has been closed and is no longer accepting candidates.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.JOB_IS_CLOSED,
+      );
     }
 
     const candidate = await candidateRepository.findByIdAndTenant(payload.candidateId, payload.tenantId);
