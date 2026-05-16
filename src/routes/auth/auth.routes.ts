@@ -18,6 +18,7 @@ import {
   verifyCandidatePhoneOtpMsg91,
   sendCandidateSignupEmailOtp,
   verifyCandidateSignupEmailOtp,
+  uploadPublicLogo,
 } from '../../controllers/auth/auth.controller';
 import { authenticate } from '../../common/middlewares/authenticate';
 import { validateRequest } from '../../common/middlewares/validateRequest';
@@ -40,8 +41,19 @@ import {
   sendCandidateSignupEmailOtpSchema,
   verifyCandidateSignupEmailOtpSchema,
 } from '../../validations/auth/auth.validation';
+import multer from 'multer';
 
+const upload = multer({ storage: multer.memoryStorage() });
 const authRouter = Router();
+
+/**
+ * @openapi
+ * /api/v1/auth/upload-logo:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Upload company logo (Public, for signup)
+ */
+authRouter.post('/upload-logo', upload.single('logo'), uploadPublicLogo);
 
 /**
  * @openapi

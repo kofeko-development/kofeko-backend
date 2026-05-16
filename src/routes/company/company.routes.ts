@@ -7,13 +7,25 @@ import {
   getCompany,
   registerCompany,
   updateCompany,
+  uploadLogo,
 } from '../../controllers/company/company.controller';
 import {
   createCompanySchema,
   updateCompanySchema,
 } from '../../validations/company/company.validation';
+import multer from 'multer';
 
+const upload = multer({ storage: multer.memoryStorage() });
 const companyRouter = Router();
+
+/**
+ * @openapi
+ * /api/v1/company/upload-logo:
+ *   post:
+ *     tags: [Company]
+ *     summary: Upload company logo (JPG/PNG/SVG)
+ */
+companyRouter.post('/upload-logo', authenticate, authorize([PERMISSIONS.COMPANY_UPDATE]), upload.single('logo'), uploadLogo);
 
 /**
  * @openapi

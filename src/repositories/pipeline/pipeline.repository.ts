@@ -39,7 +39,7 @@ export const pipelineRepository = {
     pagination: PaginationInput,
   ): Promise<{
     items: Array<
-      Pipeline & { candidate: { firstName: string; lastName: string; email: string; phoneNumber: string | null; resumeUrl: string | null; resumeMimeType: string | null; linkedinUrl: string | null; portfolioUrl: string | null; location: string | null; skills: string[]; yearsOfExperience: number | null }; job: { title: string } }
+      Pipeline & { candidate: { firstName: string; lastName: string; email: string; phoneNumber: string | null; resumeUrl: string | null; resumeMimeType: string | null; linkedinUrl: string | null; portfolioUrl: string | null; location: string | null; skills: string[]; yearsOfExperience: number | null }; job: { title: string }; evaluations: any[] }
     >;
     total: number;
   }> {
