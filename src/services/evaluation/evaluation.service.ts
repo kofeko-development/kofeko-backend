@@ -72,6 +72,15 @@ export const evaluationService = {
       throw new AppError('Job not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
 
+    const skillWeights = (job.skillWeights as any[]) ?? [];
+    if (skillWeights.length === 0) {
+      throw new AppError(
+        'This job has no skill weights defined. Add skill priorities to the job before running AI evaluation.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.NO_SKILL_WEIGHTS,
+      );
+    }
+
     const candidate = await candidateRepository.findByIdAndTenant(payload.candidateId, tenantId);
     if (!candidate) {
       throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);

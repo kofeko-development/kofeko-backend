@@ -59,12 +59,12 @@ export const superAdminService = {
     });
 
     if (!admin) {
-      throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError('Invalid super admin credentials.', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
     const ok = await comparePassword(password, admin.passwordHash);
     if (!ok) {
-      throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError('Invalid super admin credentials.', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
     const payload = { sub: admin.id, type: 'super_admin' as const };

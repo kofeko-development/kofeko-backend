@@ -34,10 +34,21 @@ export const candidateAuthService = {
 
     const existing = await prisma.candidate.findFirst({
       where: { tenantId: tenant.id, email: payload.email },
-      select: { id: true },
+      select: { id: true, passwordHash: true },
     });
     if (existing) {
-      throw new AppError('Candidate with this email already exists', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
+      if (!existing.passwordHash) {
+        throw new AppError(
+          'An account exists for this email but needs to be activated. Check your email for an invitation link.',
+          StatusCodes.CONFLICT,
+          ERROR_CODES.ACCOUNT_INVITED_ONLY
+        );
+      }
+      throw new AppError(
+        'An account with this email already exists. Please sign in instead.',
+        StatusCodes.CONFLICT,
+        ERROR_CODES.CONFLICT
+      );
     }
 
     const passwordHash = await hashPassword(payload.password);
@@ -100,9 +111,9 @@ export const candidateAuthService = {
 
     if (!candidate.passwordHash) {
       throw new AppError(
-        'This account was created by a recruiter. Use the invite link to set your password.',
-        StatusCodes.UNAUTHORIZED,
-        ERROR_CODES.UNAUTHORIZED,
+        'This account was created by the recruiting team. Check your email for an invite link to set your password.',
+        StatusCodes.FORBIDDEN,
+        ERROR_CODES.ACCOUNT_NO_PASSWORD,
       );
     }
 
