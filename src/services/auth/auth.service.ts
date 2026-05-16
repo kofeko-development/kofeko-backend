@@ -6,6 +6,7 @@ import { env } from '../../config/env';
 import { comparePassword, hashPassword } from '../../common/auth/password';
 import { createTokenHash } from '../../common/auth/tokenHash';
 import { generateResetToken, getResetTokenExpiryDate } from '../../common/auth/inviteToken';
+import { signCandidateAccessToken, signCandidateRefreshToken } from '../../common/auth/candidate.jwt';
 import {
   signAccessToken,
   signCompanyRegistrationEmailToken,
@@ -386,7 +387,7 @@ export const authService = {
       const pendingRequest = await prisma.companyRegistrationRequest.findFirst({
         where: {
           adminEmail: email,
-          status: { in: ['pending', 'under_review' as any] }
+          status: { in: ['pending', 'approved' as any] } // Use lowercase as per schema
         }
       });
 
@@ -525,6 +526,8 @@ export const authService = {
       throw new AppError('User not found after registration', StatusCodes.INTERNAL_SERVER_ERROR, ERROR_CODES.INTERNAL_SERVER_ERROR);
     }
 
+    await this.ensureCandidateRecord(hydratedUser);
+
     const tokenPayload = {
       sub: hydratedUser.id,
       tenantId: tenant.id,
@@ -532,8 +535,8 @@ export const authService = {
       type: 'candidate' as const,
     };
 
-    const accessToken = signAccessToken(tokenPayload);
-    const refreshToken = signRefreshToken(tokenPayload);
+    const accessToken = signCandidateAccessToken(tokenPayload);
+    const refreshToken = signCandidateRefreshToken(tokenPayload);
 
     await authRepository.createSession({
       tenantId: tenant.id,
@@ -574,8 +577,8 @@ export const authService = {
       email: user.email,
       type: 'candidate' as const,
     };
-    const accessToken = signAccessToken(tokenPayload);
-    const refreshToken = signRefreshToken(tokenPayload);
+    const accessToken = signCandidateAccessToken(tokenPayload);
+    const refreshToken = signCandidateRefreshToken(tokenPayload);
 
     await authRepository.createSession({
       tenantId: user.tenantId,
