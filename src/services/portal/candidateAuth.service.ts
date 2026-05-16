@@ -106,6 +106,20 @@ export const candidateAuthService = {
       select: { id: true, tenantId: true, firstName: true, lastName: true, email: true, passwordHash: true },
     });
     if (!candidate) {
+      // Check if this is a staff user trying to log in to the candidate portal
+      const staffUser = await prisma.user.findFirst({
+        where: { email },
+        include: { tenant: true }
+      });
+      
+      if (staffUser && staffUser.tenant.slug !== (process.env.CANDIDATE_TENANT_SLUG ?? 'kofeko-candidates')) {
+        throw new AppError(
+          'This is a recruiter account. Please log in through the main dashboard.',
+          StatusCodes.FORBIDDEN,
+          ERROR_CODES.WRONG_PORTAL
+        );
+      }
+
       throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
@@ -133,7 +147,7 @@ export const candidateAuthService = {
     return {
       accessToken: signCandidateAccessToken(jwtPayload),
       refreshToken: signCandidateRefreshToken(jwtPayload),
-      candidate: {
+      user: {
         id: fullCandidate.id,
         firstName: fullCandidate.firstName,
         lastName: fullCandidate.lastName,
@@ -147,6 +161,7 @@ export const candidateAuthService = {
         hobbies: fullCandidate.hobbies,
         skills: fullCandidate.skills,
         linkedinUrl: fullCandidate.linkedinUrl,
+        roles: ['candidate'],
       },
     };
   },
@@ -198,7 +213,22 @@ export const candidateAuthService = {
     if (!candidate) {
       throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
-    return candidate;
+    return {
+      id: candidate.id,
+      firstName: candidate.firstName,
+      lastName: candidate.lastName,
+      email: candidate.email,
+      phoneNumber: candidate.phoneNumber,
+      resumeUrl: candidate.resumeUrl,
+      summary: candidate.summary,
+      education: candidate.education,
+      workExperience: candidate.workExperience,
+      projects: candidate.projects,
+      hobbies: candidate.hobbies,
+      skills: candidate.skills,
+      linkedinUrl: candidate.linkedinUrl,
+      roles: ['candidate'],
+    };
   },
 };
 
