@@ -26,6 +26,7 @@ beforeEach(async () => {
   await prisma.role.deleteMany();
   await prisma.user.deleteMany();
   await prisma.company.deleteMany();
+  await prisma.auditLog.deleteMany();
   await prisma.tenant.deleteMany();
 });
 

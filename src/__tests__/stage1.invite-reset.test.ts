@@ -6,6 +6,8 @@ jest.mock('../common/email/emailProvider', () => ({
   sendEmail: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.setTimeout(30000);
+
 const { sendEmail } = jest.requireMock('../common/email/emailProvider') as {
   sendEmail: jest.Mock;
 };

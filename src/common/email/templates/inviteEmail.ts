@@ -9,7 +9,7 @@ export type InviteEmailInput = {
   tenantSlug?: string;
   loginUrl: string;
   /** One-time password until they change it via the link below. */
-  temporaryPassword: string;
+  temporaryPassword?: string;
   /** Plain-text role label, e.g. "HR Manager" or custom position title. */
   roleTitle: string;
   /** Pre-rendered HTML block with responsibilities (already safe / from trusted templates). */
@@ -30,7 +30,6 @@ export function inviteEmailTemplate(input: InviteEmailInput): string {
     ? `<p style="margin:8px 0;color:#374151;font-size:14px"><strong>Company slug</strong> (for login if asked): <code style="background:#f3f4f6;padding:2px 8px;border-radius:4px;font-size:13px">${escapeHtml(input.tenantSlug)}</code></p>`
     : '';
   const roleTitle = escapeHtml(input.roleTitle.trim() || 'team member');
-  const pwd = escapeHtml(input.temporaryPassword);
 
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;line-height:1.6;max-width:640px;margin:0 auto;color:#1f2937">
@@ -50,18 +49,14 @@ export function inviteEmailTemplate(input: InviteEmailInput): string {
 
       <p style="margin:18px 0 10px;font-size:14px;color:#374151;font-weight:600">Your sign-in details</p>
       <div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px 18px;background:#f9fafb;margin:0 0 18px">
-        <p style="margin:6px 0;font-size:14px"><strong>Login URL:</strong> <a href="${escapeHtml(input.loginUrl)}" style="color:${BRAND_PRIMARY};word-break:break-all">${escapeHtml(input.loginUrl)}</a></p>
         <p style="margin:6px 0;font-size:14px"><strong>Email:</strong> ${email}</p>
-        <p style="margin:6px 0;font-size:14px"><strong>Temporary password:</strong>
-          <code style="font-size:15px;background:#fff;padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;letter-spacing:0.02em">${pwd}</code>
-        </p>
       </div>
       <p style="margin:0 0 14px;color:#4b5563;font-size:14px">
-        Sign in with the email and temporary password above. For security, set a new password as soon as you can using the button below.
+        Please click the button below to accept your invitation and set up your password:
       </p>
       <p style="margin:0 0 8px">
         <a href="${escapeHtml(input.inviteLink)}" style="display:inline-block;padding:12px 20px;background:${BRAND_PRIMARY};color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px">
-          Set your password
+          Accept Invite
         </a>
       </p>
       <p style="margin:16px 0 0;font-size:13px;color:#6b7280">
@@ -73,3 +68,4 @@ export function inviteEmailTemplate(input: InviteEmailInput): string {
   </div>
   `;
 }
+
