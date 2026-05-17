@@ -883,15 +883,34 @@ export const authService = {
   },
 
   async forgotPassword(payload: ForgotPasswordInput): Promise<void> {
-    const tenant = await authRepository.findTenantBySlug(payload.tenantSlug);
+    let tenantId: string | undefined;
+    let userId: string | undefined;
+    let userEmail = payload.email;
+    let userName = 'User';
 
-    if (!tenant) {
-      return;
+    if (!payload.tenantSlug) {
+      const user = await prisma.user.findFirst({
+        where: { email: payload.email },
+      });
+      if (user) {
+        tenantId = user.tenantId;
+        userId = user.id;
+        userName = `${user.firstName} ${user.lastName}`.trim();
+      }
+    } else {
+      const tenant = await authRepository.findTenantBySlug(payload.tenantSlug);
+      if (tenant) {
+        tenantId = tenant.id;
+        const user = await authRepository.findUserByTenantAndEmail(tenant.id, payload.email);
+        if (user) {
+          userId = user.id;
+          userName = `${user.firstName} ${user.lastName}`.trim();
+          userId = user.id;
+        }
+      }
     }
 
-    const user = await authRepository.findUserByTenantAndEmail(tenant.id, payload.email);
-
-    if (!user) {
+    if (!tenantId || !userId) {
       return;
     }
 
@@ -899,8 +918,8 @@ export const authService = {
     const tokenHash = createTokenHash(rawToken);
 
     await authRepository.createPasswordResetToken({
-      tenantId: tenant.id,
-      userId: user.id,
+      tenantId,
+      userId,
       token: tokenHash,
       expiresAt: getResetTokenExpiryDate(),
     });
@@ -908,22 +927,22 @@ export const authService = {
     const resetLink = `${env.APP_FRONTEND_URL}/reset-password?token=${rawToken}`;
 
     await sendEmail({
-      to: user.email,
+      to: userEmail,
       subject: 'Reset your Kofeko password',
       html: passwordResetEmailTemplate({
         resetLink,
-        userName: `${user.firstName} ${user.lastName}`.trim(),
+        userName,
       }),
     });
 
     await auditService.createAuditLog({
-      tenantId: tenant.id,
-      actorId: user.id,
+      tenantId,
+      actorId: userId,
       action: 'create',
       entityType: 'password_reset',
-      entityId: user.id,
+      entityId: userId,
       metadata: {
-        email: user.email,
+        email: userEmail,
       },
     });
   },

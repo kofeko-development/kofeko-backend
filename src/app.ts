@@ -12,7 +12,9 @@ import { httpLogger } from './common/logger/logger';
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
 app.use(cors());
 app.use(compression());
 app.use(cookieParser());
@@ -24,7 +26,12 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ success: true, message: 'Server is healthy' });
 });
 
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static('uploads', {
+  setHeaders: (res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 if (process.env.SWAGGER_ENABLED === 'true') {
   app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

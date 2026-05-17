@@ -309,4 +309,147 @@ export const portalParseResume = catchAsync(async (req: Request, res: Response) 
   });
 });
 
+export const portalUploadResume = catchAsync(async (req: Request, res: Response) => {
+  const candidateId = String(req.candidate?.candidateId);
+  const tenantId = String(req.candidate?.tenantId);
+  const file = (req as Request & { file?: Express.Multer.File }).file;
+
+  if (!file) {
+    throw new AppError('Resume file is required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  const allowed = new Set([
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+  ]);
+
+  if (!allowed.has(file.mimetype)) {
+    throw new AppError('Unsupported format. Use PDF, DOCX, or TXT.', StatusCodes.UNSUPPORTED_MEDIA_TYPE, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  const maxBytes = 8 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    throw new AppError('File is too large (max 8 MB).', StatusCodes.REQUEST_TOO_LONG, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  const resumeUrl = await uploadFile(file.buffer, file.originalname, file.mimetype);
+
+  await prisma.candidate.updateMany({
+    where: { id: candidateId, tenantId },
+    data: {
+      resumeUrl,
+      resumeMimeType: file.mimetype,
+    },
+  });
+
+  sendSuccess(res, StatusCodes.OK, 'Resume uploaded successfully', {
+    resumeUrl,
+    resumeMimeType: file.mimetype,
+  });
+});
+
+export const portalListMessages = catchAsync(async (req: Request, res: Response) => {
+  const candidateId = String(req.candidate?.candidateId);
+  const currentCandidate = await prisma.candidate.findUnique({
+    where: { id: candidateId },
+    select: { email: true }
+  });
+
+  if (!currentCandidate) {
+    throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  const messages = await prisma.message.findMany({
+    where: { recipient: currentCandidate.email },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  sendSuccess(res, StatusCodes.OK, 'Messages fetched successfully', messages);
+});
+
+export const portalMarkMessageRead = catchAsync(async (req: Request, res: Response) => {
+  const candidateId = String(req.candidate?.candidateId);
+  const currentCandidate = await prisma.candidate.findUnique({
+    where: { id: candidateId },
+    select: { email: true }
+  });
+
+  if (!currentCandidate) {
+    throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  const messageId = String(req.params.id);
+  const message = await prisma.message.findFirst({
+    where: { id: messageId, recipient: currentCandidate.email }
+  });
+
+  if (!message) {
+    throw new AppError('Message not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  const updated = await prisma.message.update({
+    where: { id: messageId },
+    data: { status: 'read' }
+  });
+
+  sendSuccess(res, StatusCodes.OK, 'Message marked as read', updated);
+});
+
+export const portalArchiveMessage = catchAsync(async (req: Request, res: Response) => {
+  const candidateId = String(req.candidate?.candidateId);
+  const currentCandidate = await prisma.candidate.findUnique({
+    where: { id: candidateId },
+    select: { email: true }
+  });
+
+  if (!currentCandidate) {
+    throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  const messageId = String(req.params.id);
+  const message = await prisma.message.findFirst({
+    where: { id: messageId, recipient: currentCandidate.email }
+  });
+
+  if (!message) {
+    throw new AppError('Message not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  const updated = await prisma.message.update({
+    where: { id: messageId },
+    data: { status: 'archived' }
+  });
+
+  sendSuccess(res, StatusCodes.OK, 'Message archived successfully', updated);
+});
+
+export const portalUnarchiveMessage = catchAsync(async (req: Request, res: Response) => {
+  const candidateId = String(req.candidate?.candidateId);
+  const currentCandidate = await prisma.candidate.findUnique({
+    where: { id: candidateId },
+    select: { email: true }
+  });
+
+  if (!currentCandidate) {
+    throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  const messageId = String(req.params.id);
+  const message = await prisma.message.findFirst({
+    where: { id: messageId, recipient: currentCandidate.email }
+  });
+
+  if (!message) {
+    throw new AppError('Message not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  const updated = await prisma.message.update({
+    where: { id: messageId },
+    data: { status: 'read' }
+  });
+
+  sendSuccess(res, StatusCodes.OK, 'Message unarchived successfully', updated);
+});
+
 

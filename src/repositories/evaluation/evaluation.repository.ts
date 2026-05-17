@@ -61,6 +61,10 @@ export const evaluationRepository = {
         orderBy: { createdAt: 'desc' },
         skip: pagination.skip,
         take: pagination.limit,
+        include: {
+          candidate: { select: { id: true, firstName: true, lastName: true, email: true } },
+          job: { select: { id: true, title: true } },
+        },
       }),
       prisma.evaluation.count({ where: { tenantId } }),
     ]);

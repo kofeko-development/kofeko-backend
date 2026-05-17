@@ -76,9 +76,28 @@ export const portalApplicationService = {
     };
   },
 
-  async getMyApplications(candidateId: string, tenantId: string, pagination: { page: number; limit: number }) {
+  async getMyApplications(candidateId: string, _tenantId: string, pagination: { page: number; limit: number }) {
+    const currentCandidate = await prisma.candidate.findUnique({
+      where: { id: candidateId },
+      select: { email: true }
+    });
+
+    if (!currentCandidate) {
+      return {
+        items: [],
+        total: 0,
+        page: pagination.page,
+        limit: pagination.limit,
+        totalPages: 1,
+      };
+    }
+
     const skip = (pagination.page - 1) * pagination.limit;
-    const where = { tenantId, candidateId };
+    const where = {
+      candidate: {
+        email: currentCandidate.email
+      }
+    };
 
     const [total, items] = await Promise.all([
       prisma.pipeline.count({ where }),
@@ -97,6 +116,11 @@ export const portalApplicationService = {
               id: true,
               title: true,
               department: true,
+              tenant: {
+                select: {
+                  name: true
+                }
+              }
             },
           },
         },
@@ -104,12 +128,17 @@ export const portalApplicationService = {
     ]);
 
     const mapped = items.map((row) => ({
-        pipelineId: row.id,
-        job: row.job,
-        stage: row.stage,
-        appliedAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      }));
+      pipelineId: row.id,
+      job: {
+        id: row.job.id,
+        title: row.job.title,
+        department: row.job.department,
+        companyName: row.job.tenant.name
+      },
+      stage: row.stage,
+      appliedAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
 
     return {
       items: mapped,
@@ -120,16 +149,39 @@ export const portalApplicationService = {
     };
   },
 
-  async getMyApplicationById(candidateId: string, tenantId: string, pipelineId: string) {
+  async getMyApplicationById(candidateId: string, _tenantId: string, pipelineId: string) {
+    const currentCandidate = await prisma.candidate.findUnique({
+      where: { id: candidateId },
+      select: { email: true }
+    });
+
+    if (!currentCandidate) {
+      throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
     const pipeline = await prisma.pipeline.findFirst({
-      where: { id: pipelineId, tenantId, candidateId },
+      where: {
+        id: pipelineId,
+        candidate: {
+          email: currentCandidate.email
+        }
+      },
       select: {
         id: true,
         stage: true,
         createdAt: true,
         updatedAt: true,
         job: {
-          select: { id: true, title: true, department: true },
+          select: {
+            id: true,
+            title: true,
+            department: true,
+            tenant: {
+              select: {
+                name: true
+              }
+            }
+          },
         },
       },
     });
@@ -140,7 +192,12 @@ export const portalApplicationService = {
 
     return {
       pipelineId: pipeline.id,
-      job: pipeline.job,
+      job: {
+        id: pipeline.job.id,
+        title: pipeline.job.title,
+        department: pipeline.job.department,
+        companyName: pipeline.job.tenant.name
+      },
       stage: pipeline.stage,
       appliedAt: pipeline.createdAt,
       updatedAt: pipeline.updatedAt,

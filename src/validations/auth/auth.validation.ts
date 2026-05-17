@@ -143,7 +143,7 @@ export const acceptInviteSchema = z.object({
 
 export const forgotPasswordSchema = z.object({
   body: z.object({
-    tenantSlug: z.string().min(2).max(60),
+    tenantSlug: z.string().min(2).max(60).optional(),
     email: z.email(),
   }),
 });

@@ -27,6 +27,11 @@ import {
   portalRegisterCandidate,
   portalUpdateProfile,
   portalParseResume,
+  portalUploadResume,
+  portalListMessages,
+  portalMarkMessageRead,
+  portalArchiveMessage,
+  portalUnarchiveMessage,
 } from '../../controllers/portal/portal.controller';
 import multer from 'multer';
 
@@ -134,6 +139,7 @@ portalRouter.patch('/profile', authenticateCandidate, validateRequest(updatePort
  *     summary: Upload and parse candidate resume to auto-fill profile
  */
 portalRouter.post('/parse-resume', authenticateCandidate, upload.single('resume'), portalParseResume);
+portalRouter.post('/upload-resume', authenticateCandidate, upload.single('resume'), portalUploadResume);
 
 /**
  * @openapi
@@ -166,6 +172,12 @@ portalRouter.get(
   validateRequest(portalPipelineIdParamSchema),
   portalMyApplicationById,
 );
+
+// Messages / Inbox (candidate authenticated)
+portalRouter.get('/messages', authenticateCandidate, portalListMessages);
+portalRouter.patch('/messages/:id/read', authenticateCandidate, portalMarkMessageRead);
+portalRouter.patch('/messages/:id/archive', authenticateCandidate, portalArchiveMessage);
+portalRouter.patch('/messages/:id/unarchive', authenticateCandidate, portalUnarchiveMessage);
 
 export default portalRouter;
 

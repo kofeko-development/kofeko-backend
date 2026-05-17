@@ -66,7 +66,7 @@ export type AcceptInviteInput = {
 };
 
 export type ForgotPasswordInput = {
-  tenantSlug: string;
+  tenantSlug?: string;
   email: string;
 };
 

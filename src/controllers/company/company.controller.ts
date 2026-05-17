@@ -46,9 +46,15 @@ export const uploadLogo = catchAsync(async (req: Request, res: Response) => {
     'image/gif',
     'image/webp',
     'image/svg+xml',
+    'image/svg',
+    'image/jpg',
   ]);
 
-  if (!allowed.has(file.mimetype)) {
+  const filenameLower = file.originalname.toLowerCase();
+  const isSvg = filenameLower.endsWith('.svg');
+  const isImg = filenameLower.endsWith('.jpg') || filenameLower.endsWith('.jpeg') || filenameLower.endsWith('.png') || filenameLower.endsWith('.gif') || filenameLower.endsWith('.webp');
+
+  if (!allowed.has(file.mimetype) && !isSvg && !isImg) {
     throw new AppError('Unsupported format. Use JPG, PNG, GIF, WEBP or SVG.', StatusCodes.UNSUPPORTED_MEDIA_TYPE, ERROR_CODES.VALIDATION_ERROR);
   }
 
@@ -57,10 +63,19 @@ export const uploadLogo = catchAsync(async (req: Request, res: Response) => {
     throw new AppError('File is too large (max 5 MB).', StatusCodes.REQUEST_TOO_LONG, ERROR_CODES.VALIDATION_ERROR);
   }
 
-  const url = await uploadFile(file.buffer, file.originalname, file.mimetype);
+  let mimeType = file.mimetype;
+  if (isSvg && mimeType !== 'image/svg+xml') {
+    mimeType = 'image/svg+xml';
+  } else if ((filenameLower.endsWith('.jpg') || filenameLower.endsWith('.jpeg')) && !['image/jpeg', 'image/jpg'].includes(mimeType)) {
+    mimeType = 'image/jpeg';
+  } else if (filenameLower.endsWith('.png') && mimeType !== 'image/png') {
+    mimeType = 'image/png';
+  }
+
+  const url = await uploadFile(file.buffer, file.originalname, mimeType);
   sendSuccess(res, StatusCodes.OK, 'Logo uploaded successfully', {
     url,
-    mimeType: file.mimetype,
+    mimeType,
     filename: file.originalname,
   });
 });
