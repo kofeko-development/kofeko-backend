@@ -17,6 +17,7 @@ export type CreateJobInput = {
   niceToHave?: string;
   screeningQuestions?: string[];
   hiringPriority?: HiringPriority;
+  customStages?: any;
 };
 
 export type UpdateJobInput = Partial<Omit<CreateJobInput, 'tenantId'>>;

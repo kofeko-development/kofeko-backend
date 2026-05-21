@@ -11,6 +11,7 @@ import {
   listPipelines,
   setPipelineSla,
   updatePipeline,
+  addPipelineNote,
 } from '../../controllers/pipeline/pipeline.controller';
 import {
   advanceStageSchema,
@@ -127,6 +128,20 @@ pipelineRouter.patch(
   authorize([PERMISSIONS.PIPELINE_UPDATE]),
   validateRequest(updatePipelineSchema),
   updatePipeline,
+);
+
+/**
+ * @openapi
+ * /api/v1/pipelines/{id}/notes:
+ *   post:
+ *     tags: [Pipeline]
+ *     summary: Add note to pipeline
+ */
+pipelineRouter.post(
+  '/:id/notes',
+  authenticate,
+  authorize([PERMISSIONS.PIPELINE_UPDATE]),
+  addPipelineNote,
 );
 
 export default pipelineRouter;

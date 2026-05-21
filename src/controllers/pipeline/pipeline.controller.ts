@@ -7,7 +7,7 @@ import { parsePagination } from '../../common/utils/pagination';
 import { requireStringValue } from '../../common/utils/requestValue';
 import { pipelineService } from '../../services/pipeline/pipeline.service';
 import { CreatePipelineInput, UpdatePipelineInput } from '../../types/pipeline/pipeline.types';
-import { PipelineStage } from '@prisma/client';
+
 
 export const createPipeline = catchAsync(async (req: Request, res: Response) => {
   const pipelineInput = getRequestBody<CreatePipelineInput>(req);
@@ -34,7 +34,7 @@ export const listPipelines = catchAsync(async (req: Request, res: Response) => {
     filters: {
       jobId: jobId ? String(jobId) : undefined,
       candidateId: candidateId ? String(candidateId) : undefined,
-      stage: stage ? (String(stage) as PipelineStage) : undefined,
+      stage: stage ? String(stage) : undefined,
     },
     pagination,
   });
@@ -60,7 +60,7 @@ export const advanceStage = catchAsync(async (req: Request, res: Response) => {
   const pipelineId = requireStringValue(req.params.id, 'pipelineId');
   const tenantId = String(req.user?.tenantId);
   const actorId = String(req.user?.userId);
-  const { stage, note } = req.body as { stage: PipelineStage; note?: string };
+  const { stage, note } = req.body as { stage: string; note?: string };
   const result = await pipelineService.advanceStage(pipelineId, tenantId, stage, note, actorId);
   sendSuccess(res, StatusCodes.OK, 'Pipeline stage advanced successfully', result);
 });
@@ -81,4 +81,13 @@ export const setPipelineSla = catchAsync(async (req: Request, res: Response) => 
   const { deadline } = req.body as { deadline: string | Date };
   const result = await pipelineService.setPipelineSLA(pipelineId, tenantId, new Date(deadline), actorId);
   sendSuccess(res, StatusCodes.OK, 'SLA deadline set successfully', result);
+});
+
+export const addPipelineNote = catchAsync(async (req: Request, res: Response) => {
+  const pipelineId = requireStringValue(req.params.id, 'pipelineId');
+  const tenantId = String(req.user?.tenantId);
+  const actorId = req.user?.userId;
+  const { note } = req.body as { note: string };
+  const result = await pipelineService.addNote(pipelineId, tenantId, note, actorId);
+  sendSuccess(res, StatusCodes.OK, 'Note added successfully', result);
 });

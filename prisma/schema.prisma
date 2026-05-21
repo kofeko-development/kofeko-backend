@@ -43,15 +43,6 @@ enum CandidateStatus {
   hired
 }
 
-enum PipelineStage {
-  applied
-  screening
-  technical_interview
-  hr_interview
-  offer
-  hired
-  rejected
-}
 
 enum NotificationChannel {
   email
@@ -286,6 +277,7 @@ model Job {
   niceToHave         String?
   screeningQuestions String[] @default([])
   hiringPriority     HiringPriority?
+  customStages       Json?
   applications    Pipeline[]
   evaluations     Evaluation[]
   createdAt       DateTime    @default(now())
@@ -336,7 +328,7 @@ model Pipeline {
   job           Job           @relation(fields: [jobId], references: [id])
   candidateId   String
   candidate     Candidate     @relation(fields: [candidateId], references: [id])
-  stage         PipelineStage @default(applied)
+  stage         String        @default("applied")
   assignedTo    String?
   slaDeadline   DateTime?
   decisionNote  String?

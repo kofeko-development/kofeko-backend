@@ -116,6 +116,7 @@ export const portalApplicationService = {
               id: true,
               title: true,
               department: true,
+              customStages: true,
               tenant: {
                 select: {
                   name: true
@@ -133,7 +134,8 @@ export const portalApplicationService = {
         id: row.job.id,
         title: row.job.title,
         department: row.job.department,
-        companyName: row.job.tenant.name
+        companyName: row.job.tenant.name,
+        customStages: row.job.customStages
       },
       stage: row.stage,
       appliedAt: row.createdAt,
@@ -176,6 +178,7 @@ export const portalApplicationService = {
             id: true,
             title: true,
             department: true,
+            customStages: true,
             tenant: {
               select: {
                 name: true
@@ -196,7 +199,8 @@ export const portalApplicationService = {
         id: pipeline.job.id,
         title: pipeline.job.title,
         department: pipeline.job.department,
-        companyName: pipeline.job.tenant.name
+        companyName: pipeline.job.tenant.name,
+        customStages: pipeline.job.customStages
       },
       stage: pipeline.stage,
       appliedAt: pipeline.createdAt,

@@ -5,6 +5,13 @@ const skillWeightSchema = z.object({
   weight: z.number().int().min(0).max(10),
 });
 
+const customStageSchema = z.object({
+  stage: z.string().min(1).max(50),
+  label: z.string().min(1).max(100),
+  order: z.number().int().positive(),
+  enabled: z.boolean(),
+});
+
 export const createJobSchema = z.object({
   body: z.object({
     title: z.string().min(2).max(200),
@@ -20,6 +27,7 @@ export const createJobSchema = z.object({
     niceToHave: z.string().max(5000).optional(),
     screeningQuestions: z.array(z.string().min(1).max(500)).max(25).optional(),
     hiringPriority: z.enum(['high', 'medium', 'low']).optional(),
+    customStages: z.array(customStageSchema).optional(),
   }),
 });
 

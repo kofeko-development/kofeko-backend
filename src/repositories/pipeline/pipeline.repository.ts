@@ -1,4 +1,4 @@
-import { Pipeline, PipelineStage, Prisma } from '@prisma/client';
+import { Pipeline, Prisma } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../common/errors/AppError';
@@ -47,7 +47,7 @@ export const pipelineRepository = {
       tenantId,
       ...(filters.jobId ? { jobId: filters.jobId } : {}),
       ...(filters.candidateId ? { candidateId: filters.candidateId } : {}),
-      ...(filters.stage ? { stage: filters.stage as PipelineStage } : {}),
+      ...(filters.stage ? { stage: filters.stage } : {}),
     };
     const [items, total] = await Promise.all([
       prisma.pipeline.findMany({

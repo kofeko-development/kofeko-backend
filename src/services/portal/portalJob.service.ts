@@ -132,6 +132,7 @@ export const portalJobService = {
         experienceMin: true,
         experienceMax: true,
         hiringPriority: true,
+        customStages: true,
         createdAt: true,
       },
     });
@@ -159,6 +160,7 @@ export const portalJobService = {
         experienceMin: true,
         experienceMax: true,
         hiringPriority: true,
+        customStages: true,
         createdAt: true,
         tenant: {
           select: {

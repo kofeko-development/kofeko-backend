@@ -1,4 +1,4 @@
-import { CandidateStatus, Pipeline, PipelineStage } from '@prisma/client';
+import { CandidateStatus, Pipeline } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
@@ -13,7 +13,7 @@ import { prisma } from '../../config/prisma';
 import { ROLE_NAMES } from '../../common/constants/roles';
 import { communicationService } from '../communication/communication.service';
 
-const resolveCandidateStatusFromStage = (stage: PipelineStage): CandidateStatus => {
+const resolveCandidateStatusFromStage = (stage: string): CandidateStatus => {
   switch (stage) {
     case 'applied':
       return 'new';
@@ -29,7 +29,7 @@ const resolveCandidateStatusFromStage = (stage: PipelineStage): CandidateStatus 
     case 'rejected':
       return 'rejected';
     default:
-      return 'screening';
+      return 'interview';
   }
 };
 
@@ -123,22 +123,75 @@ export const pipelineService = {
   async advanceStage(
     id: string,
     tenantId: string,
-    newStage: PipelineStage,
+    newStage: string,
     note: string | undefined,
     actorId?: string,
   ): Promise<Pipeline> {
-    const currentPipeline = await pipelineRepository.findByIdAndTenant(id, tenantId);
+    const currentPipeline = await prisma.pipeline.findFirst({
+      where: { id, tenantId },
+      include: { job: true },
+    });
+
     if (!currentPipeline) {
       throw new AppError('Pipeline record not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
 
     assertValidStageTransition(currentPipeline.stage, newStage);
+
+    // Enforce forward-only progression
+    const customStages = Array.isArray(currentPipeline.job.customStages) ? currentPipeline.job.customStages : null;
+    let orderedStageKeys: string[] = ['applied', 'screening', 'technical_interview', 'hr_interview', 'offer', 'hired', 'rejected'];
+
+    if (customStages) {
+      orderedStageKeys = [...customStages]
+        .filter((s: any) => s.enabled !== false)
+        .sort((a: any, b: any) => a.order - b.order)
+        .map((s: any) => s.stage);
+    }
+
+    const currentIndex = orderedStageKeys.indexOf(currentPipeline.stage);
+    const nextIndex = orderedStageKeys.indexOf(newStage);
+
+    if (currentIndex !== -1 && nextIndex !== -1 && nextIndex <= currentIndex) {
+      throw new AppError(
+        'Pipeline stages can only progress forward. You cannot move a candidate backward.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.INVALID_STAGE_TRANSITION
+      );
+    }
+
     const nextCandidateStatus = resolveCandidateStatusFromStage(newStage);
+
+    let existingNotes: any[] = [];
+    if (currentPipeline.notes) {
+      try {
+        existingNotes = JSON.parse(currentPipeline.notes);
+        if (!Array.isArray(existingNotes)) existingNotes = [];
+      } catch {
+        // If it's a legacy string note, we could optionally preserve it or just ignore it
+        existingNotes = [];
+      }
+    }
+
+    if (note) {
+      const user = actorId ? await prisma.user.findUnique({ where: { id: actorId } }) : null;
+      const authorName = user ? `${user.firstName} ${user.lastName}` : 'System';
+      const formattedStageName = newStage.replace('_', ' ');
+      existingNotes.push({
+        author: authorName,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        note: `[Moved to ${formattedStageName}] ${note}`,
+      });
+    }
 
     const updatedPipeline = await prisma.$transaction(async (tx) => {
       const updated = await tx.pipeline.update({
         where: { id: currentPipeline.id },
-        data: { stage: newStage, ...(note ? { decisionNote: note } : {}) },
+        data: {
+          stage: newStage,
+          ...(note ? { decisionNote: note } : {}),
+          notes: JSON.stringify(existingNotes)
+        },
       });
       await tx.candidate.update({
         where: { id: currentPipeline.candidateId },
@@ -295,5 +348,40 @@ export const pipelineService = {
       metadata: { before: currentPipeline, after: updated },
     });
     return updated;
+  },
+
+  async addNote(id: string, tenantId: string, noteText: string, actorId?: string) {
+    const pipeline = await pipelineRepository.findByIdAndTenant(id, tenantId);
+    if (!pipeline) {
+      throw new AppError('Pipeline record not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    let authorName = 'System';
+    if (actorId) {
+      const user = await prisma.user.findUnique({ where: { id: actorId } });
+      if (user) {
+        authorName = `${user.firstName} ${user.lastName}`.trim();
+      }
+    }
+
+    let existingNotes: any[] = [];
+    if (pipeline.notes) {
+      try {
+        existingNotes = JSON.parse(pipeline.notes);
+        if (!Array.isArray(existingNotes)) existingNotes = [];
+      } catch {
+        existingNotes = [];
+      }
+    }
+
+    existingNotes.push({
+      author: authorName,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      note: noteText,
+    });
+    return prisma.pipeline.update({
+      where: { id: pipeline.id },
+      data: { notes: JSON.stringify(existingNotes) },
+    });
   },
 };

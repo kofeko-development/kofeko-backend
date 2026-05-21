@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PIPELINE_STAGES } from '../../common/constants/pipelineStages';
+
 
 export const createPipelineSchema = z.object({
   body: z.object({
@@ -26,14 +26,14 @@ export const pipelineListQuerySchema = z.object({
     limit: z.coerce.number().int().positive().max(100).optional(),
     jobId: z.uuid().optional(),
     candidateId: z.uuid().optional(),
-    stage: z.enum(PIPELINE_STAGES).optional(),
+    stage: z.string().min(1).max(100).optional(),
   }),
 });
 
 export const advanceStageSchema = z.object({
   params: z.object({ id: z.uuid() }),
   body: z.object({
-    stage: z.enum(PIPELINE_STAGES),
+    stage: z.string().min(1).max(100),
     note: z.string().max(5000).optional(),
   }),
 });

@@ -1,4 +1,4 @@
-import { PipelineStage } from '@prisma/client';
+
 
 export type CreatePipelineInput = {
   tenantId: string;
@@ -14,5 +14,5 @@ export type UpdatePipelineInput = {
 export type PipelineListFilters = {
   jobId?: string;
   candidateId?: string;
-  stage?: PipelineStage;
+  stage?: string;
 };
