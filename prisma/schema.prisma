@@ -67,6 +67,18 @@ enum AuditActionType {
   send_message
   suspend
   activate
+  linkedin_copy
+  linkedin_share_opened
+  linkedin_connect
+  linkedin_disconnect
+  linkedin_post
+}
+
+enum LinkedInPostStatus {
+  generated
+  shared
+  published
+  failed
 }
 
 enum CompanyRegistrationStatus {
@@ -118,6 +130,8 @@ model Tenant {
   messages    Message[]
   metrics     Metric[]
   auditLogs   AuditLog[]
+  linkedInConnections LinkedInConnection[]
+  linkedInPosts       LinkedInPost[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -162,6 +176,8 @@ model User {
   sessions     Session[]
   inviteTokens InviteToken[]
   passwordResetTokens PasswordResetToken[]
+  linkedInConnection  LinkedInConnection?
+  linkedInPostsMade   LinkedInPost[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -280,8 +296,45 @@ model Job {
   customStages       Json?
   applications    Pipeline[]
   evaluations     Evaluation[]
+  linkedInPosts   LinkedInPost[]
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+}
+
+model LinkedInConnection {
+  id                String    @id @default(uuid())
+  tenantId          String
+  userId            String    @unique
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  user              User      @relation(fields: [userId], references: [id])
+  linkedInPersonId  String?
+  linkedInName      String?
+  accessToken       String
+  refreshToken      String?
+  accessTokenExpiry DateTime?
+  scope             String?
+  connectedAt       DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model LinkedInPost {
+  id              String             @id @default(uuid())
+  tenantId        String
+  jobId           String
+  postedByUserId  String
+  tenant          Tenant             @relation(fields: [tenantId], references: [id])
+  job             Job                @relation(fields: [jobId], references: [id])
+  postedByUser    User               @relation(fields: [postedByUserId], references: [id])
+  linkedInPostId  String?
+  postUrl         String?
+  shareUrl        String?
+  postText        String
+  tier            Int                @default(1)
+  status          LinkedInPostStatus @default(generated)
+  errorMessage    String?
+  postedAt        DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 }
 
 model Candidate {

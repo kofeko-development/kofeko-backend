@@ -26,6 +26,9 @@ export const PERMISSIONS = {
   ANALYTICS_READ: 'analytics:read',
   AUDIT_CREATE: 'audit:create',
   AUDIT_READ: 'audit:read',
+  LINKEDIN_CONNECT: 'linkedin:connect',
+  LINKEDIN_POST: 'linkedin:post',
+  LINKEDIN_READ: 'linkedin:read',
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

@@ -56,6 +56,11 @@ const envSchema = z.object({
   REPLICATE_REASONING_EFFORT: z.enum(['none', 'low', 'medium', 'high', 'xhigh']).optional(),
   REPLICATE_VERBOSITY: z.enum(['low', 'medium', 'high']).optional(),
   REPLICATE_MAX_COMPLETION_TOKENS: z.string().optional(),
+
+  LINKEDIN_CLIENT_ID: z.string().optional(),
+  LINKEDIN_CLIENT_SECRET: z.string().optional(),
+  LINKEDIN_REDIRECT_URI: z.string().url().optional(),
+  LINKEDIN_ENCRYPT_KEY: z.string().min(32).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
