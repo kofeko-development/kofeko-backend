@@ -75,15 +75,15 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-const requireInProduction = (key: string, value: unknown, missing: string[]) => {
-  if (!parsed.success) return;
-  if (parsed.data.NODE_ENV !== 'production') return;
-  if (typeof value === 'string') {
-    if (!value.trim()) missing.push(key);
-    return;
-  }
-  if (value == null) missing.push(key);
-};
+// const requireInProduction = (key: string, value: unknown, missing: string[]) => {
+//   if (!parsed.success) return;
+//   if (parsed.data.NODE_ENV !== 'production') return;
+//   if (typeof value === 'string') {
+//     if (!value.trim()) missing.push(key);
+//     return;
+//   }
+//   if (value == null) missing.push(key);
+// };
 
 const missing: string[] = [];
 
