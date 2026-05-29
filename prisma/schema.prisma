@@ -294,6 +294,7 @@ model Job {
   screeningQuestions String[] @default([])
   hiringPriority     HiringPriority?
   customStages       Json?
+  linkedInImageUrl   String?
   applications    Pipeline[]
   evaluations     Evaluation[]
   linkedInPosts   LinkedInPost[]
@@ -309,6 +310,10 @@ model LinkedInConnection {
   user              User      @relation(fields: [userId], references: [id])
   linkedInPersonId  String?
   linkedInName      String?
+  linkedInEmail     String?
+  linkedInOrgId     String?
+  linkedInOrgName   String?
+  postAsOrg         Boolean   @default(false)
   accessToken       String
   refreshToken      String?
   accessTokenExpiry DateTime?
@@ -329,6 +334,10 @@ model LinkedInPost {
   postUrl         String?
   shareUrl        String?
   postText        String
+  imageUrl        String?
+  postedAsOrg     Boolean?
+  postedOrgName   String?
+  postedPersonName String?
   tier            Int                @default(1)
   status          LinkedInPostStatus @default(generated)
   errorMessage    String?

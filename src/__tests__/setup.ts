@@ -12,6 +12,8 @@ beforeEach(async () => {
   await prisma.evaluation.deleteMany();
   await prisma.pipeline.deleteMany();
   await prisma.candidate.deleteMany();
+  await prisma.linkedInPost.deleteMany();
+  await prisma.linkedInConnection.deleteMany();
   await prisma.job.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.message.deleteMany();

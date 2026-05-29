@@ -12,6 +12,12 @@ export const jobPostsParamSchema = z.object({
   }),
 });
 
+export const jobImageParamSchema = z.object({
+  params: z.object({
+    jobId: z.uuid(),
+  }),
+});
+
 export const recordCopySchema = z.object({
   body: z.object({
     jobId: z.uuid(),
@@ -31,5 +37,19 @@ export const autoPostSchema = z.object({
   body: z.object({
     jobId: z.uuid(),
     customText: z.string().max(3000).optional(),
+    postAsOrg: z.boolean().optional(),
+  }),
+});
+
+export const updatePreferenceSchema = z.object({
+  body: z.object({
+    postAsOrg: z.boolean(),
+  }),
+});
+
+export const setOrganizationSchema = z.object({
+  body: z.object({
+    orgId: z.string().min(1).max(200),
+    orgName: z.string().max(200).optional(),
   }),
 });

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { authenticate } from '../../common/middlewares/authenticate';
 import { authorize } from '../../common/middlewares/authorize';
 import { validateRequest } from '../../common/middlewares/validateRequest';
@@ -6,13 +7,17 @@ import { PERMISSIONS } from '../../common/constants/permissions';
 import * as ctrl from '../../controllers/linkedin/linkedin.controller';
 import {
   autoPostSchema,
+  jobImageParamSchema,
   jobPostsParamSchema,
   previewJobIdParamSchema,
   recordCopySchema,
   recordShareSchema,
+  setOrganizationSchema,
+  updatePreferenceSchema,
 } from '../../validations/linkedin/linkedin.validation';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.get(
   '/preview/:jobId',
@@ -48,11 +53,46 @@ router.get(
   authorize([PERMISSIONS.LINKEDIN_READ]),
   ctrl.getStatus,
 );
+router.patch(
+  '/preference',
+  authenticate,
+  authorize([PERMISSIONS.LINKEDIN_CONNECT]),
+  validateRequest(updatePreferenceSchema),
+  ctrl.updatePreference,
+);
+router.post(
+  '/refresh-organization',
+  authenticate,
+  authorize([PERMISSIONS.LINKEDIN_CONNECT]),
+  ctrl.refreshOrganization,
+);
+router.patch(
+  '/organization',
+  authenticate,
+  authorize([PERMISSIONS.LINKEDIN_CONNECT]),
+  validateRequest(setOrganizationSchema),
+  ctrl.setOrganization,
+);
 router.delete(
   '/disconnect',
   authenticate,
   authorize([PERMISSIONS.LINKEDIN_CONNECT]),
   ctrl.disconnect,
+);
+router.post(
+  '/jobs/:jobId/image',
+  authenticate,
+  authorize([PERMISSIONS.LINKEDIN_POST]),
+  validateRequest(jobImageParamSchema),
+  upload.single('image'),
+  ctrl.uploadJobImage,
+);
+router.delete(
+  '/jobs/:jobId/image',
+  authenticate,
+  authorize([PERMISSIONS.LINKEDIN_POST]),
+  validateRequest(jobImageParamSchema),
+  ctrl.clearJobImage,
 );
 router.post(
   '/post',
