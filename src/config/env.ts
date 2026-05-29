@@ -11,9 +11,9 @@ if (!process.env.DIRECT_URL?.trim() && process.env.DATABASE_URL) {
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  DIRECT_URL: z.string().min(1, 'DIRECT_URL is required'),
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 chars'),
+  DATABASE_URL: z.string().optional(),
+  DIRECT_URL: z.string().optional(),
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 chars').default('development_secret_override_me_with_something_that_is_at_least_32_characters_long'),
   // Backwards-compatible overrides (optional)
   JWT_ACCESS_SECRET: z.string().min(16).optional(),
   JWT_REFRESH_SECRET: z.string().min(16).optional(),
@@ -86,6 +86,10 @@ const requireInProduction = (key: string, value: unknown, missing: string[]) => 
 };
 
 const missing: string[] = [];
+
+requireInProduction('DATABASE_URL', parsed.data.DATABASE_URL, missing);
+requireInProduction('DIRECT_URL', parsed.data.DIRECT_URL, missing);
+requireInProduction('JWT_SECRET', parsed.data.JWT_SECRET, missing);
 
 const hasResend = Boolean(parsed.data.RESEND_API_KEY?.trim());
 if (!hasResend) {
