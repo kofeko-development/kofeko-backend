@@ -9,6 +9,10 @@ import { PaginationInput } from '../../common/utils/pagination';
 
 export const candidateService = {
   async createCandidate(payload: CreateCandidateInput, actorId?: string): Promise<Candidate> {
+    if (!payload.resumeUrl?.trim()) {
+      throw new AppError('Resume is required to create a candidate', StatusCodes.BAD_REQUEST, ERROR_CODES.NO_RESUME);
+    }
+
     const existing = await candidateRepository.findByEmailInTenant(payload.tenantId, payload.email);
     if (existing) {
       throw new AppError('Candidate with this email already exists', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);

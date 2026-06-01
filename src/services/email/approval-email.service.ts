@@ -1,5 +1,5 @@
-import nodemailer from 'nodemailer';
 import { env } from '../../config/env';
+import { sendEmail } from '../../common/email/emailProvider';
 
 type SendApprovalEmailInput = {
   companyName: string;
@@ -10,28 +10,7 @@ type SendApprovalEmailInput = {
   password?: string;
 };
 
-const getTransporter = () => {
-  if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASS) {
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_SECURE,
-    auth: {
-      user: env.SMTP_USER,
-      pass: env.SMTP_PASS,
-    },
-  });
-};
-
 export const sendCompanyApprovalEmail = async (input: SendApprovalEmailInput): Promise<boolean> => {
-  const transporter = getTransporter();
-  if (!transporter) {
-    return false;
-  }
-
   const loginUrl = `${env.FRONTEND_URL.replace(/\/$/, '')}/login`;
   const subject = `Kofeko Company Account Approved - ${input.companyName}`;
   const html = `
@@ -56,8 +35,7 @@ export const sendCompanyApprovalEmail = async (input: SendApprovalEmailInput): P
     </div>
   `;
 
-  await transporter.sendMail({
-    from: `"${env.SMTP_FROM_NAME}" <${env.SMTP_FROM_EMAIL}>`,
+  await sendEmail({
     to: input.toEmail,
     subject,
     html,

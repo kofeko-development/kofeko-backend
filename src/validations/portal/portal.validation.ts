@@ -77,7 +77,7 @@ export const applyToJobSchema = z.object({
   }),
   body: z
     .object({
-      resumeUrl: z.string().url().optional(),
+      resumeUrl: z.string().url('Resume is required to apply for this job'),
       resumeMimeType: z.string().min(1).max(100).optional(),
       coverLetter: z.string().max(2000).optional(),
     })

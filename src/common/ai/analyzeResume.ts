@@ -1,4 +1,4 @@
-import { openRouterJsonCompletion } from './openRouter';
+import { aiJsonCompletion } from './jsonCompletion';
 import type {
   AnalyzeResult,
   CareerTrajectoryClassification,
@@ -319,7 +319,7 @@ Include one skillMatches entry for each company priority skill listed above (reu
 Enforce: hiringIntelligence.relevanceToRole.matchScorePercent === scores.overall.
 Return ONLY a single valid JSON object. No markdown code fences, no commentary before or after.`;
 
-  const raw = await openRouterJsonCompletion({ system: HIRING_ANALYST_SYSTEM, user });
+  const raw = await aiJsonCompletion({ system: HIRING_ANALYST_SYSTEM, user });
   if (!raw || !raw.trim()) {
     throw new AppError('Empty response from AI provider.', StatusCodes.BAD_GATEWAY, ERROR_CODES.AI_EVALUATION_FAILED);
   }

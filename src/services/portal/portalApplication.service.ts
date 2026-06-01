@@ -31,15 +31,17 @@ export const portalApplicationService = {
       throw new AppError('You have already applied to this job', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
     }
 
-    if (payload.resumeUrl) {
-      await prisma.candidate.update({
-        where: { id: candidateId },
-        data: {
-          resumeUrl: payload.resumeUrl,
-          resumeMimeType: payload.resumeMimeType,
-        },
-      });
+    if (!payload.resumeUrl?.trim()) {
+      throw new AppError('Resume is required to apply for this job', StatusCodes.BAD_REQUEST, ERROR_CODES.NO_RESUME);
     }
+
+    await prisma.candidate.update({
+      where: { id: candidateId },
+      data: {
+        resumeUrl: payload.resumeUrl,
+        resumeMimeType: payload.resumeMimeType,
+      },
+    });
 
     const pipeline = await prisma.pipeline.create({
       data: {

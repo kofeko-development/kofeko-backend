@@ -153,6 +153,13 @@ async function createCompanyCandidate(
 ) {
   const existing = await prisma.candidate.findFirst({ where: { tenantId, email: data.email } });
   if (existing) {
+    if (data.resumeUrl && !existing.resumeUrl) {
+      await prisma.candidate.update({
+        where: { id: existing.id },
+        data: { resumeUrl: data.resumeUrl, resumeMimeType: 'application/pdf' },
+      });
+      console.log(`  ♻️  Backfilled resume for candidate: ${data.email}`);
+    }
     console.log(`  ℹ️  Company candidate exists: ${data.email}`);
     return existing;
   }
@@ -360,6 +367,14 @@ async function main() {
     status: 'new',
     resumeUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
   });
+  const candNoResume = await createCompanyCandidate(tenantId, {
+    firstName: 'No',
+    lastName: 'Resume',
+    email: 'noresume@kofeko-test.com',
+    skills: ['General'],
+    status: 'new',
+    resumeUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+  });
 
   console.log('\n💼 Creating jobs...');
   const createJob = async (data: {
@@ -523,6 +538,12 @@ async function main() {
     decisionNote: 'Excellent Python skills',
   });
   await createPipeline({ jobId: job1.id, candidateId: cand1.id, stage: 'applied' });
+  await createPipeline({
+    jobId: job1.id,
+    candidateId: candNoResume.id,
+    stage: 'applied',
+    decisionNote: 'QA seed: resume attached for mandatory resume flow',
+  });
   await createPipeline({ jobId: job3.id, candidateId: cand5.id, stage: 'screening' });
   await createPipeline({ jobId: jobNoWeights.id, candidateId: cand3.id, stage: 'applied' });
 

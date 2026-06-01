@@ -1,7 +1,7 @@
 import { StatusCodes } from 'http-status-codes';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
-import { openRouterJsonCompletion } from '../../common/ai/openRouter';
+import { aiJsonCompletion } from '../../common/ai/jsonCompletion';
 
 export type JdCreatorInput = {
   jobTitle: string;
@@ -50,7 +50,7 @@ Employment Type: ${input.employmentType || 'Not specified'}
 Additional Requirements/Context: ${requirements || 'None provided. Generate a standard profile.'}`;
 
     try {
-      const response = await openRouterJsonCompletion({
+      const response = await aiJsonCompletion({
         system: systemPrompt,
         user: userPrompt,
         model: 'google/gemini-2.0-flash-001'

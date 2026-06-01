@@ -65,6 +65,13 @@ export const pipelineService = {
     if (!candidate) {
       throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
+    if (!candidate.resumeUrl?.trim()) {
+      throw new AppError(
+        'Candidate must have a resume before they can be added to a job pipeline.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.NO_RESUME,
+      );
+    }
 
     const duplicate = await pipelineRepository.findDuplicate(payload.tenantId, payload.jobId, payload.candidateId);
     if (duplicate) {

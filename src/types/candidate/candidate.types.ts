@@ -6,7 +6,7 @@ export type CreateCandidateInput = {
   lastName: string;
   email: string;
   phoneNumber?: string;
-  resumeUrl?: string;
+  resumeUrl: string;
   resumeMimeType?: string;
   linkedinUrl?: string;
   portfolioUrl?: string;

@@ -1,4 +1,4 @@
-import { openRouterJsonCompletion } from './openRouter';
+import { aiJsonCompletion } from './jsonCompletion';
 import { StatusCodes } from 'http-status-codes';
 import { AppError } from '../errors/AppError';
 import { ERROR_CODES } from '../errors/errorCodes';
@@ -65,7 +65,7 @@ Return a single JSON object with this exact shape:
   "hobbies": ["Array of hobbies/interests"]
 }`;
 
-  const raw = await openRouterJsonCompletion({ system: RESUME_PARSER_SYSTEM, user: userPrompt });
+  const raw = await aiJsonCompletion({ system: RESUME_PARSER_SYSTEM, user: userPrompt });
 
   const trimmed = raw.trim();
   const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);

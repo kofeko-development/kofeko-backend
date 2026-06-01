@@ -6,7 +6,7 @@ export const createCandidateSchema = z.object({
     lastName: z.string().min(1).max(80),
     email: z.email(),
     phoneNumber: z.string().min(6).max(20).optional(),
-    resumeUrl: z.url().optional(),
+    resumeUrl: z.url('Resume is required for candidates'),
     resumeMimeType: z.string().max(200).optional(),
     linkedinUrl: z.url().optional(),
     portfolioUrl: z.url().optional(),
