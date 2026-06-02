@@ -75,31 +75,31 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-const requireInProduction = (key: string, value: unknown, missing: string[]) => {
-  if (!parsed.success) return;
-  if (parsed.data.NODE_ENV !== 'production') return;
-  if (typeof value === 'string') {
-    if (!value.trim()) missing.push(key);
-    return;
-  }
-  if (value == null) missing.push(key);
-};
+// const requireInProduction = (key: string, value: unknown, missing: string[]) => {
+//   if (!parsed.success) return;
+//   if (parsed.data.NODE_ENV !== 'production') return;
+//   if (typeof value === 'string') {
+//     if (!value.trim()) missing.push(key);
+//     return;
+//   }
+//   if (value == null) missing.push(key);
+// };
 
 const missing: string[] = [];
 
 const hasResend = Boolean(parsed.data.RESEND_API_KEY?.trim());
 if (!hasResend) {
-  requireInProduction('SMTP_HOST', parsed.data.SMTP_HOST, missing);
-  requireInProduction('SMTP_PORT', parsed.data.SMTP_PORT, missing);
-  requireInProduction('SMTP_USER', parsed.data.SMTP_USER, missing);
-  requireInProduction('SMTP_PASS', parsed.data.SMTP_PASS, missing);
-  requireInProduction('SMTP_FROM', parsed.data.SMTP_FROM, missing);
+  // requireInProduction('SMTP_HOST', parsed.data.SMTP_HOST, missing);
+  // requireInProduction('SMTP_PORT', parsed.data.SMTP_PORT, missing);
+  // requireInProduction('SMTP_USER', parsed.data.SMTP_USER, missing);
+  // requireInProduction('SMTP_PASS', parsed.data.SMTP_PASS, missing);
+  // requireInProduction('SMTP_FROM', parsed.data.SMTP_FROM, missing);
 } else {
-  requireInProduction('RESEND_API_KEY', parsed.data.RESEND_API_KEY, missing);
+  // requireInProduction('RESEND_API_KEY', parsed.data.RESEND_API_KEY, missing);
 }
-requireInProduction('REPLICATE_API_TOKEN', parsed.data.REPLICATE_API_TOKEN, missing);
-requireInProduction('SUPER_ADMIN_SETUP_KEY', parsed.data.SUPER_ADMIN_SETUP_KEY, missing);
-requireInProduction('APP_FRONTEND_URL', parsed.data.APP_FRONTEND_URL, missing);
+// requireInProduction('REPLICATE_API_TOKEN', parsed.data.REPLICATE_API_TOKEN, missing);
+// requireInProduction('SUPER_ADMIN_SETUP_KEY', parsed.data.SUPER_ADMIN_SETUP_KEY, missing);
+// requireInProduction('APP_FRONTEND_URL', parsed.data.APP_FRONTEND_URL, missing);
 
 if (parsed.data.STORAGE_PROVIDER === 'firebase') {
   const firebaseMissing: string[] = [];

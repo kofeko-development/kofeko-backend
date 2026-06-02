@@ -7,7 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import routes from './routes';
 import { notFoundHandler } from './common/middlewares/notFound';
 import { errorHandler } from './common/middlewares/errorHandler';
-import { swaggerSpec } from './common/swagger/swagger.config.ts';
+import { swaggerSpec } from './common/swagger/swagger.config';
 import { httpLogger } from './common/logger/logger';
 
 const app = express();
