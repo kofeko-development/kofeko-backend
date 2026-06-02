@@ -191,7 +191,7 @@ export const authService = {
       throw new AppError(
         `A verification code was just sent to this email. Try again in ${waitSec}s.`,
         StatusCodes.TOO_MANY_REQUESTS,
-        ERROR_CODES.VALIDATION_ERROR,
+        ERROR_CODES.OTP_RATE_LIMITED,
       );
     }
 
@@ -229,17 +229,17 @@ export const authService = {
 
     const otp = await authRepository.findActiveCandidateSignupEmailOtp(email);
     if (!otp) {
-      throw new AppError('Verification code expired or not found. Please request a new one.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError('Verification code expired or not found. Please request a new one.', StatusCodes.BAD_REQUEST, ERROR_CODES.OTP_EXPIRED);
     }
 
     if (otp.attempts >= CANDIDATE_SIGNUP_OTP_MAX_ATTEMPTS) {
-      throw new AppError('Too many failed attempts. Please request a new code.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError('Too many failed attempts. Please request a new code.', StatusCodes.BAD_REQUEST, ERROR_CODES.OTP_MAX_ATTEMPTS);
     }
 
     const codeHash = hashCandidateSignupOtpCode(email, code);
     if (otp.codeHash !== codeHash) {
       await authRepository.incrementCandidateSignupOtpAttempts(otp.id);
-      throw new AppError('Invalid verification code.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError('Invalid verification code.', StatusCodes.BAD_REQUEST, ERROR_CODES.OTP_INVALID);
     }
 
     await authRepository.markCandidateSignupOtpConsumed(otp.id);
@@ -776,7 +776,12 @@ export const authService = {
   },
 
   async refreshToken(payload: RefreshTokenInput) {
-    const decoded = verifyRefreshToken(payload.refreshToken);
+    let decoded: ReturnType<typeof verifyRefreshToken>;
+    try {
+      decoded = verifyRefreshToken(payload.refreshToken);
+    } catch {
+      throw new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
     const refreshTokenHash = createTokenHash(payload.refreshToken);
 
     const session = await authRepository.findValidSession(decoded.sub, decoded.tenantId, refreshTokenHash);

@@ -167,7 +167,12 @@ export const candidateAuthService = {
   },
 
   async refresh(refreshToken: string) {
-    const decoded = verifyCandidateRefreshToken(refreshToken);
+    let decoded: ReturnType<typeof verifyCandidateRefreshToken>;
+    try {
+      decoded = verifyCandidateRefreshToken(refreshToken);
+    } catch {
+      throw new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
     if (decoded.type !== 'candidate') {
       throw new AppError('Invalid refresh token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
