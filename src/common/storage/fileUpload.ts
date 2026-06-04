@@ -59,6 +59,7 @@ export async function uploadFile(buffer: Buffer, filename: string, mimeType: str
         return uploadLocal(buffer, filename);
       }
 
+      // Bucket must allow public read on uploads/* for logo preview in signup UI.
       return data.publicUrl;
     } catch (err) {
       console.warn('Supabase storage exception, falling back to local storage.', err);

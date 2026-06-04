@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 import { AppError } from '../errors/AppError';
 import { ERROR_CODES } from '../errors/errorCodes';
 import { logger } from '../logger/logger';
+import { zodErrorDetails } from '../utils/zodErrorDetails';
 
 export const errorHandler = (error: unknown, _req: Request, res: Response, _next: NextFunction): void => {
   let statusCode = StatusCodes.INTERNAL_SERVER_ERROR;
@@ -27,7 +28,7 @@ export const errorHandler = (error: unknown, _req: Request, res: Response, _next
     statusCode = StatusCodes.BAD_REQUEST;
     message = 'Validation failed';
     errorCode = ERROR_CODES.VALIDATION_ERROR;
-    details = error.flatten();
+    details = zodErrorDetails(error);
   } else if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
     logger.warn({ errorCode: ERROR_CODES.CONFLICT }, 'Conflict');
     statusCode = StatusCodes.CONFLICT;

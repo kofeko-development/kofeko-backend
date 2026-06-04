@@ -1,4 +1,20 @@
 import { z } from 'zod';
+import { ensureHttpsUrl } from '../../common/utils/ensureHttpsUrl';
+
+const websiteUrlSchema = z.preprocess(
+  (value) => (typeof value === 'string' ? ensureHttpsUrl(value) : value),
+  z.url({ error: 'Please enter a valid company website URL (https://...)' }),
+);
+
+const optionalWebsiteUrlSchema = z.preprocess(
+  (value) => {
+    if (value === '' || value === undefined || value === null) return undefined;
+    if (typeof value !== 'string') return value;
+    const normalized = ensureHttpsUrl(value);
+    return normalized || undefined;
+  },
+  z.url({ error: 'Please enter a valid URL (example: https://example.com)' }).optional(),
+);
 
 export const registerAdminSchema = z.object({
   body: z.object({
@@ -10,11 +26,6 @@ export const registerAdminSchema = z.object({
     password: z.string().min(8).max(128),
   }),
 });
-
-const optionalUrl = z
-  .union([z.literal(''), z.url({ error: 'Please enter a valid URL (example: https://example.com)' })])
-  .optional()
-  .transform((value) => value || undefined);
 
 export const sendCompanySignupEmailOtpSchema = z.object({
   body: z.object({
@@ -62,17 +73,20 @@ export const registerCompanyRequestSchema = z.object({
     companySize: z.enum(['1-10', '11-50', '51-200', '201-500', '501-1000', '1000+']),
     companyType: z.enum(['startup', 'enterprise', 'agency', 'non_profit']),
     foundedYear: z.coerce.number().int().min(1800, 'Founded year is invalid').max(new Date().getFullYear(), 'Founded year cannot be in the future'),
-    companyWebsite: z.url({ error: 'Please enter a valid company website URL (https://...)' }),
+    companyWebsite: websiteUrlSchema,
     officialCompanyAddress: z.string().min(5, 'Official company address must be at least 5 characters').max(500),
     phoneNumber: z
       .string()
       .min(9, 'Enter a valid phone number with country code')
       .max(22, 'Phone number is too long')
       .regex(/^\+\d{8,17}$/, 'Use international format with country code (e.g. +919876543210)'),
-    companyLogo: z.url({ error: 'Please enter a valid company logo URL (https://...)' }),
+    companyLogo: z
+      .string()
+      .min(1, 'Upload a company logo before submitting')
+      .url({ error: 'Please enter a valid company logo URL (https://...)' }),
     shortDescription: z.string().min(20, 'Short description must be at least 20 characters').max(1000),
-    linkedinUrl: optionalUrl,
-    twitterUrl: optionalUrl,
+    linkedinUrl: optionalWebsiteUrlSchema,
+    twitterUrl: optionalWebsiteUrlSchema,
     termsAccepted: z.literal(true),
     contactName: z.string().min(2).max(120).optional(),
     contactEmail: z.email().optional(),
