@@ -111,6 +111,37 @@ describe('Module 1: company signup email OTP + registration request', () => {
     expect(row?.termsAccepted).toBe(true);
   });
 
+  it('returns per-field validation details (not collapsed body array)', async () => {
+    const res = await request(app).post('/api/v1/auth/register-company-request').send({
+      companyName: 'X',
+      companyAddress: {
+        country: 'US',
+        state: 'CA',
+        city: 'SF',
+        zipCode: '94102',
+        fullAddress: '123 St',
+      },
+      industry: 'Tech',
+      companySize: '1-10',
+      companyType: 'startup',
+      foundedYear: 2099,
+      companyWebsite: 'not-a-url',
+      officialCompanyAddress: '123 St',
+      phoneNumber: '+1',
+      companyLogo: '',
+      shortDescription: 'short',
+      termsAccepted: true,
+      adminEmail: 'bad@example.com',
+      password: 'short',
+      emailVerificationToken: 'x'.repeat(30),
+    });
+    expect(res.status).toBe(400);
+    const fieldErrors = res.body.details?.fieldErrors as Record<string, string[]> | undefined;
+    expect(fieldErrors).toBeDefined();
+    expect(fieldErrors?.['body.companyLogo'] ?? fieldErrors?.companyLogo).toBeDefined();
+    expect(Array.isArray(fieldErrors?.body)).toBe(false);
+  });
+
   it('rejects registration with invalid phone (validation)', async () => {
     await request(app).post('/api/v1/auth/register-company-email-otp/send').send({ email: QA_EMAIL });
     const verifyRes = await request(app).post('/api/v1/auth/register-company-email-otp/verify').send({
@@ -126,6 +157,23 @@ describe('Module 1: company signup email OTP + registration request', () => {
 
     const regRes = await request(app).post('/api/v1/auth/register-company-request').send(bad);
     expect(regRes.status).toBe(400);
+    const fieldErrors = regRes.body.details?.fieldErrors as Record<string, string[]> | undefined;
+    expect(fieldErrors?.['body.phoneNumber'] ?? fieldErrors?.phoneNumber).toBeDefined();
+  });
+
+  it('accepts company website without scheme (prepends https)', async () => {
+    await request(app).post('/api/v1/auth/register-company-email-otp/send').send({ email: 'website-norm@example.test' });
+    const verifyRes = await request(app).post('/api/v1/auth/register-company-email-otp/verify').send({
+      email: 'website-norm@example.test',
+      code: '654321',
+    });
+    const token = verifyRes.body.data.emailVerificationToken as string;
+    const body = {
+      ...buildValidCompanyRegistrationBody(token, 'website-norm@example.test'),
+      companyWebsite: 'www.example.test',
+    };
+    const regRes = await request(app).post('/api/v1/auth/register-company-request').send(body);
+    expect(regRes.status).toBe(201);
   });
 });
 
