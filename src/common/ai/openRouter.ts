@@ -9,7 +9,9 @@ interface OpenRouterArgs {
 }
 
 export async function openRouterJsonCompletion(args: OpenRouterArgs): Promise<string> {
-  const { system, user, model = 'nvidia/nemotron-3-super-120b-a12b:free' } = args;
+  const defaultModel =
+    process.env.OPENROUTER_MODEL?.trim() || 'google/gemini-2.0-flash-001';
+  const { system, user, model = defaultModel } = args;
 
   const apiKey = process.env.OPEN_ROUTE;
   if (!apiKey) {
@@ -20,12 +22,17 @@ export async function openRouterJsonCompletion(args: OpenRouterArgs): Promise<st
     );
   }
 
+  const referer =
+    process.env.APP_FRONTEND_URL?.trim() ||
+    process.env.FRONTEND_URL?.trim() ||
+    'https://kofeko.com';
+
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'http://localhost:3000',
+      'HTTP-Referer': referer,
       'X-Title': 'Kofeko',
     },
     body: JSON.stringify({

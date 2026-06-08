@@ -2,6 +2,7 @@ import { StatusCodes } from 'http-status-codes';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { aiJsonCompletion } from '../../common/ai/jsonCompletion';
+import { extractJsonObject } from '../../common/ai/extractJsonObject';
 
 export type JdCreatorInput = {
   jobTitle: string;
@@ -49,26 +50,45 @@ Job Type: ${input.jobType || 'Not specified'}
 Employment Type: ${input.employmentType || 'Not specified'}
 Additional Requirements/Context: ${requirements || 'None provided. Generate a standard profile.'}`;
 
+    let response: string;
     try {
-      const response = await aiJsonCompletion({
+      response = await aiJsonCompletion({
         system: systemPrompt,
-        user: userPrompt,
-        model: 'google/gemini-2.0-flash-001'
+        user: `${userPrompt}\n\nReturn ONLY a single valid JSON object. No markdown code fences, no commentary before or after.`,
       });
+    } catch (error) {
+      console.error('AI JD Generation provider failed:', error);
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError(
+        'Failed to generate job description with AI. Check AI provider credentials on the server.',
+        StatusCodes.BAD_GATEWAY,
+        ERROR_CODES.AI_EVALUATION_FAILED,
+      );
+    }
 
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : response;
-      const result = JSON.parse(jsonStr) as { html: string; plainText: string; suggestedSkills: SkillWeight[] };
+    if (!response?.trim()) {
+      throw new AppError('AI provider returned an empty response.', StatusCodes.BAD_GATEWAY, ERROR_CODES.AI_EVALUATION_FAILED);
+    }
 
-      return {
-        html: result.html,
-        plainText: result.plainText || '',
-        suggestedSkills: result.suggestedSkills || []
+    let result: { html: string; plainText: string; suggestedSkills: SkillWeight[] };
+    try {
+      result = JSON.parse(extractJsonObject(response)) as {
+        html: string;
+        plainText: string;
+        suggestedSkills: SkillWeight[];
       };
     } catch (error) {
-      console.error('AI JD Generation failed:', error);
-      throw new AppError('Failed to generate job description with AI', StatusCodes.BAD_GATEWAY, ERROR_CODES.AI_EVALUATION_FAILED);
+      console.error('AI JD Generation JSON parse failed:', error, response.slice(0, 500));
+      throw new AppError('AI provider returned invalid JSON.', StatusCodes.BAD_GATEWAY, ERROR_CODES.AI_EVALUATION_FAILED);
     }
+
+    return {
+      html: result.html,
+      plainText: result.plainText || '',
+      suggestedSkills: result.suggestedSkills || [],
+    };
   },
 };
 

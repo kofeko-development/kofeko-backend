@@ -13,6 +13,7 @@ export const ERROR_CODES = {
   APPROVAL_REJECTED: 'APPROVAL_REJECTED',      // NEW: company registration was declined
   ACCOUNT_NO_PASSWORD: 'ACCOUNT_NO_PASSWORD',  // NEW: recruiter-created candidate has no password
   ACCOUNT_INVITED_ONLY: 'ACCOUNT_INVITED_ONLY',// NEW: staff invited but hasn't accepted yet
+  ACCOUNT_PENDING: 'ACCOUNT_PENDING',          // staff onboarding done but admin set account to pending
   USER_SUSPENDED: 'USER_SUSPENDED',            // NEW: individual user suspended (vs whole tenant)
   TENANT_SUSPENDED: 'TENANT_SUSPENDED',        // existing: whole company suspended
 

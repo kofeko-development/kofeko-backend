@@ -109,8 +109,8 @@ export const registerCandidateSchema = z.object({
 export const loginSchema = z.object({
   body: z.object({
     tenantSlug: z.string().min(2).max(60).optional(),
-    email: z.email(),
-    password: z.string().min(8).max(128),
+    email: z.email('Enter a valid email address'),
+    password: z.string().min(8, 'Password must be at least 8 characters').max(128),
   }),
 });
 

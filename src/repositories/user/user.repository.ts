@@ -65,17 +65,32 @@ export const userRepository = {
     });
   },
 
-  async listByTenant(tenantId: string, input: { page: number; limit: number }): Promise<{ items: User[]; total: number }> {
+  async listByTenant(
+    tenantId: string,
+    input: { page: number; limit: number },
+  ): Promise<{ items: Array<User & { roles: string[] }>; total: number }> {
     const { page, limit } = input;
-    const [items, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       prisma.user.findMany({
         where: { tenantId },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          userRoles: {
+            include: {
+              role: { select: { name: true } },
+            },
+          },
+        },
       }),
       prisma.user.count({ where: { tenantId } }),
     ]);
+
+    const items = rows.map(({ userRoles, ...user }) => ({
+      ...user,
+      roles: userRoles.map((userRole) => userRole.role.name),
+    }));
 
     return { items, total };
   },

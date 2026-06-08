@@ -450,11 +450,18 @@ export const authService = {
     }
 
     if (user.status === UserStatus.invited) {
-      // Do NOT auto-activate here. They must use the invite link.
+      const acceptedInvite = await authRepository.hasUserAcceptedInvite(user.id, user.tenantId);
+      if (acceptedInvite) {
+        throw new AppError(
+          'Your account is pending approval. Contact your company admin to restore access.',
+          StatusCodes.FORBIDDEN,
+          ERROR_CODES.ACCOUNT_PENDING,
+        );
+      }
       throw new AppError(
         'Please accept your invitation first. Check your email for the invite link to set your password.',
         StatusCodes.FORBIDDEN,
-        ERROR_CODES.ACCOUNT_INVITED_ONLY
+        ERROR_CODES.ACCOUNT_INVITED_ONLY,
       );
     }
 

@@ -438,6 +438,14 @@ export const authRepository = {
     });
   },
 
+  async hasUserAcceptedInvite(userId: string, tenantId: string): Promise<boolean> {
+    const usedToken = await prisma.inviteToken.findFirst({
+      where: { userId, tenantId, usedAt: { not: null } },
+      select: { id: true },
+    });
+    return Boolean(usedToken);
+  },
+
   async createPasswordResetToken(data: {
     tenantId: string;
     userId: string;

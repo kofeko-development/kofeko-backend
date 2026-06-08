@@ -254,7 +254,14 @@ export const userService = {
     }
 
     if (Object.keys(updateData).length > 0) {
-      return userRepository.updateByIdAndTenant(id, tenantId, updateData);
+      const updated = await userRepository.updateByIdAndTenant(id, tenantId, updateData);
+      if (
+        updateData.status === UserStatus.invited ||
+        updateData.status === UserStatus.suspended
+      ) {
+        await prisma.session.deleteMany({ where: { tenantId, userId: id } });
+      }
+      return updated;
     }
     
     return this.getUserById(id, tenantId);
