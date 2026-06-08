@@ -23,7 +23,7 @@ export type RegisterCompanyRequestInput = {
   companyWebsite: string;
   officialCompanyAddress: string;
   phoneNumber?: string;
-  companyLogo: string;
+  companyLogo?: string;
   shortDescription: string;
   linkedinUrl?: string;
   twitterUrl?: string;
@@ -34,7 +34,7 @@ export type RegisterCompanyRequestInput = {
   adminEmail: string;
   password: string;
   /** Issued after successful email OTP verification (must match adminEmail). */
-  emailVerificationToken: string;
+  emailVerificationToken?: string;
 };
 
 export type RegisterCandidateInput = {

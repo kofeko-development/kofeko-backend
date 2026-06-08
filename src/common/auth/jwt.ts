@@ -39,7 +39,7 @@ export const signCompanyRegistrationEmailToken = (email: string): string => {
   return jwt.sign(
     { typ: COMPANY_REGISTRATION_EMAIL_JWT_TYP, email: normalized } satisfies CompanyRegistrationEmailJwtPayload,
     env.JWT_ACCESS_SECRET,
-    { expiresIn: '30m' },
+    { expiresIn: '24h' },
   );
 };
 

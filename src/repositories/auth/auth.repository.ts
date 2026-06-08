@@ -51,7 +51,7 @@ type CompanyRegistrationRequestInput = {
   companyWebsite: string;
   officialCompanyAddress: string;
   phoneNumber?: string;
-  companyLogo: string;
+  companyLogo?: string;
   shortDescription: string;
   linkedinUrl?: string;
   twitterUrl?: string;
@@ -271,7 +271,7 @@ export const authRepository = {
         companyWebsite: input.companyWebsite,
         officialCompanyAddress: input.officialCompanyAddress,
         phoneNumber: input.phoneNumber,
-        companyLogo: input.companyLogo,
+        companyLogo: input.companyLogo?.trim() || '',
         shortDescription: input.shortDescription,
         linkedinUrl: input.linkedinUrl,
         twitterUrl: input.twitterUrl,
@@ -685,6 +685,17 @@ export const authRepository = {
     return prisma.companySignupEmailOtp.update({
       where: { id },
       data: { consumedAt: new Date() },
+    });
+  },
+
+  async findRecentlyConsumedCompanySignupOtp(email: string, withinMs: number) {
+    const since = new Date(Date.now() - withinMs);
+    return prisma.companySignupEmailOtp.findFirst({
+      where: {
+        email: email.toLowerCase(),
+        consumedAt: { not: null, gte: since },
+      },
+      orderBy: { consumedAt: 'desc' },
     });
   },
 

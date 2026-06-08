@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ensureHttpsUrl } from '../../common/utils/ensureHttpsUrl';
+import { isValidE164PhoneNumber } from '../../common/utils/validatePhoneNumber';
 
 const websiteUrlSchema = z.preprocess(
   (value) => (typeof value === 'string' ? ensureHttpsUrl(value) : value),
@@ -14,6 +15,16 @@ const optionalWebsiteUrlSchema = z.preprocess(
     return normalized || undefined;
   },
   z.url({ error: 'Please enter a valid URL (example: https://example.com)' }).optional(),
+);
+
+const optionalCompanyLogoSchema = z.preprocess(
+  (value) => {
+    if (value === '' || value === undefined || value === null) return undefined;
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  },
+  z.url({ error: 'Please enter a valid company logo URL (https://...)' }).optional(),
 );
 
 export const registerAdminSchema = z.object({
@@ -77,13 +88,10 @@ export const registerCompanyRequestSchema = z.object({
     officialCompanyAddress: z.string().min(5, 'Official company address must be at least 5 characters').max(500),
     phoneNumber: z
       .string()
-      .min(9, 'Enter a valid phone number with country code')
+      .min(1, 'Enter a valid phone number with country code')
       .max(22, 'Phone number is too long')
-      .regex(/^\+\d{8,17}$/, 'Use international format with country code (e.g. +919876543210)'),
-    companyLogo: z
-      .string()
-      .min(1, 'Upload a company logo before submitting')
-      .url({ error: 'Please enter a valid company logo URL (https://...)' }),
+      .refine(isValidE164PhoneNumber, 'Enter a valid phone number with country code (e.g. +919876543210)'),
+    companyLogo: optionalCompanyLogoSchema,
     shortDescription: z.string().min(20, 'Short description must be at least 20 characters').max(1000),
     linkedinUrl: optionalWebsiteUrlSchema,
     twitterUrl: optionalWebsiteUrlSchema,
@@ -92,7 +100,7 @@ export const registerCompanyRequestSchema = z.object({
     contactEmail: z.email().optional(),
     adminEmail: z.email('Enter a valid company admin email'),
     password: z.string().min(8, 'Password must be at least 8 characters').max(128),
-    emailVerificationToken: z.string().min(20, 'Verify your email with the code we sent'),
+    emailVerificationToken: z.string().optional(),
   }),
 });
 

@@ -138,7 +138,8 @@ describe('Module 1: company signup email OTP + registration request', () => {
     expect(res.status).toBe(400);
     const fieldErrors = res.body.details?.fieldErrors as Record<string, string[]> | undefined;
     expect(fieldErrors).toBeDefined();
-    expect(fieldErrors?.['body.companyLogo'] ?? fieldErrors?.companyLogo).toBeDefined();
+    expect(fieldErrors?.['body.companyLogo'] ?? fieldErrors?.companyLogo).toBeUndefined();
+    expect(fieldErrors?.['body.shortDescription'] ?? fieldErrors?.shortDescription).toBeDefined();
     expect(Array.isArray(fieldErrors?.body)).toBe(false);
   });
 
@@ -172,6 +173,23 @@ describe('Module 1: company signup email OTP + registration request', () => {
       ...buildValidCompanyRegistrationBody(token, 'website-norm@example.test'),
       companyWebsite: 'www.example.test',
     };
+    const regRes = await request(app).post('/api/v1/auth/register-company-request').send(body);
+    expect(regRes.status).toBe(201);
+  });
+
+  it('accepts registration without JWT when email OTP was recently verified', async () => {
+    const email = 'otp-fallback@example.test';
+    await request(app).post('/api/v1/auth/register-company-email-otp/send').send({ email });
+    await request(app).post('/api/v1/auth/register-company-email-otp/verify').send({
+      email,
+      code: '654321',
+    });
+
+    const body = {
+      ...buildValidCompanyRegistrationBody('unused-token-should-not-matter', email),
+      emailVerificationToken: undefined,
+    };
+
     const regRes = await request(app).post('/api/v1/auth/register-company-request').send(body);
     expect(regRes.status).toBe(201);
   });

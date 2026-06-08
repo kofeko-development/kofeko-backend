@@ -42,6 +42,7 @@ const COMPANY_SIGNUP_OTP_TTL_MS = 10 * 60 * 1000;
 const COMPANY_SIGNUP_OTP_COOLDOWN_MS_PROD = 45 * 1000;
 const COMPANY_SIGNUP_OTP_COOLDOWN_MS_DEV = 10 * 1000;
 const COMPANY_SIGNUP_OTP_MAX_ATTEMPTS = 8;
+const COMPANY_SIGNUP_EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 
 const companySignupOtpCooldownMs = () =>
   env.NODE_ENV === 'development' ? COMPANY_SIGNUP_OTP_COOLDOWN_MS_DEV : COMPANY_SIGNUP_OTP_COOLDOWN_MS_PROD;
@@ -291,10 +292,28 @@ export const authService = {
 
   async registerCompanyRequest(payload: RegisterCompanyRequestInput) {
     const adminEmail = payload.adminEmail.trim().toLowerCase();
-    let verifiedEmail: string;
-    try {
-      verifiedEmail = verifyCompanyRegistrationEmailToken(payload.emailVerificationToken).email;
-    } catch {
+    let verifiedEmail: string | null = null;
+
+    const token = payload.emailVerificationToken?.trim();
+    if (token) {
+      try {
+        verifiedEmail = verifyCompanyRegistrationEmailToken(token).email;
+      } catch {
+        verifiedEmail = null;
+      }
+    }
+
+    if (!verifiedEmail) {
+      const recentVerification = await authRepository.findRecentlyConsumedCompanySignupOtp(
+        adminEmail,
+        COMPANY_SIGNUP_EMAIL_VERIFICATION_TTL_MS,
+      );
+      if (recentVerification) {
+        verifiedEmail = adminEmail;
+      }
+    }
+
+    if (!verifiedEmail || verifiedEmail !== adminEmail) {
       throw new AppError(
         'Verify your admin email with the code we sent before submitting registration.',
         StatusCodes.BAD_REQUEST,
