@@ -85,6 +85,42 @@ describe('Stage 1: invite + accept-invite + password reset', () => {
     expect(loginRes.body.data.accessToken).toBeTruthy();
   });
 
+  it('rejects inviting an email already used by another company account', async () => {
+    const firstCompany = await request(app).post('/api/v1/auth/register-admin').send({
+      tenantName: 'First Co',
+      tenantSlug: 'first-co',
+      firstName: 'First',
+      lastName: 'Admin',
+      email: 'owner@first.com',
+      password: 'AdminA1aaaa',
+    });
+    expect(firstCompany.status).toBe(201);
+
+    const secondCompany = await request(app).post('/api/v1/auth/register-admin').send({
+      tenantName: 'Second Co',
+      tenantSlug: 'second-co',
+      firstName: 'Second',
+      lastName: 'Admin',
+      email: 'owner@second.com',
+      password: 'AdminA1aaaa',
+    });
+    expect(secondCompany.status).toBe(201);
+
+    const inviteRes = await request(app)
+      .post('/api/v1/users/invite')
+      .set('Authorization', `Bearer ${secondCompany.body.data.accessToken}`)
+      .send({
+        firstName: 'Duplicate',
+        lastName: 'Invite',
+        email: 'owner@first.com',
+        roleName: 'recruiter',
+      });
+
+    expect(inviteRes.status).toBe(409);
+    expect(inviteRes.body.errorCode).toBe('EMAIL_ALREADY_IN_USE');
+    expect(inviteRes.body.message).toMatch(/already been used/i);
+  });
+
   it('rejects expired invite token with 400', async () => {
     const registerRes = await request(app).post('/api/v1/auth/register-admin').send({
       tenantName: 'Acme',

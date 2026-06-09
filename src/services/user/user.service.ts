@@ -19,6 +19,10 @@ import { authRepository } from '../../repositories/auth/auth.repository';
 import { userRepository } from '../../repositories/user/user.repository';
 import { CreateUserInput, InviteUserInput, UpdateUserInput } from '../../types/user/user.types';
 import { PaginationInput } from '../../common/utils/pagination';
+import {
+  assertEmailAvailableForCompanyAccount,
+  normalizeAccountEmail,
+} from '../../common/auth/emailAvailability';
 
 const ALL_KNOWN_PERMISSION_KEYS = new Set<string>(Object.values(PERMISSIONS));
 /** Never grant platform RBAC admin via staff invite. */
@@ -94,6 +98,9 @@ const resolveRoleForTenant = async (tenantId: string, roleName: string) => {
 
 export const userService = {
   async createUser(payload: CreateUserInput): Promise<User> {
+    const email = normalizeAccountEmail(payload.email);
+    await assertEmailAvailableForCompanyAccount(email);
+
     const passwordHash = await hashPassword(payload.password);
     const roleName = payload.roleName ?? ROLE_NAMES.RECRUITER;
     const role = await resolveRoleForTenant(payload.tenantId, roleName);
@@ -102,7 +109,7 @@ export const userService = {
       tenantId: payload.tenantId,
       firstName: payload.firstName,
       lastName: payload.lastName,
-      email: payload.email,
+      email,
       passwordHash,
       roleId: role.id,
       status: payload.status ?? UserStatus.active,
@@ -110,10 +117,8 @@ export const userService = {
   },
 
   async inviteUser(payload: InviteUserInput): Promise<User> {
-    const duplicate = await userRepository.findByTenantAndEmail(payload.tenantId, payload.email);
-    if (duplicate) {
-      throw new AppError('User with this email already exists in tenant', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
-    }
+    const email = normalizeAccountEmail(payload.email);
+    await assertEmailAvailableForCompanyAccount(email);
 
     const rawCustomKeys = payload.permissionKeys?.filter((k) => typeof k === 'string' && k.trim()) ?? [];
     const customKeys = sanitizeInvitePermissionKeys(payload.permissionKeys);
@@ -159,7 +164,7 @@ export const userService = {
       tenantId: payload.tenantId,
       firstName: payload.firstName,
       lastName: payload.lastName,
-      email: payload.email,
+      email,
       passwordHash,
       roleId: role.id,
       status: UserStatus.invited,
@@ -176,7 +181,7 @@ export const userService = {
     });
 
     const inviteLink = `${env.APP_FRONTEND_URL}/accept-invite?token=${rawToken}`;
-    const loginUrl = `${env.APP_FRONTEND_URL.replace(/\/$/, '')}/login`;
+    const loginUrl = `${env.APP_FRONTEND_URL.replace(/\/$/, '')}/company-login`;
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: payload.tenantId },

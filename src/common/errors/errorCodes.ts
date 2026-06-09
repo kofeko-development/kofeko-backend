@@ -33,6 +33,7 @@ export const ERROR_CODES = {
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
+  EMAIL_ALREADY_IN_USE: 'EMAIL_ALREADY_IN_USE',
 
   // Business rules
   JOB_NOT_OPEN: 'JOB_NOT_OPEN',               // NEW: job must be open for pipeline

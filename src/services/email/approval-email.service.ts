@@ -11,7 +11,7 @@ type SendApprovalEmailInput = {
 };
 
 export const sendCompanyApprovalEmail = async (input: SendApprovalEmailInput): Promise<boolean> => {
-  const loginUrl = `${env.FRONTEND_URL.replace(/\/$/, '')}/login`;
+  const loginUrl = `${env.FRONTEND_URL.replace(/\/$/, '')}/company-login`;
   const subject = `Kofeko Company Account Approved - ${input.companyName}`;
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; max-width: 640px; margin: 0 auto; color: #111827;">

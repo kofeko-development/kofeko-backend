@@ -20,6 +20,10 @@ import {
 import { PERMISSIONS } from '../../common/constants/permissions';
 import { sendEmail } from '../../common/email/emailProvider';
 import { companyRegistrationOtpEmailTemplate } from '../../common/email/templates/companyRegistrationOtpEmail';
+import {
+  assertEmailAvailableForCompanyAccount,
+  normalizeAccountEmail,
+} from '../../common/auth/emailAvailability';
 import { passwordResetEmailTemplate } from '../../common/email/templates/passwordResetEmail';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
@@ -115,10 +119,12 @@ const getRefreshExpiryDate = (): Date => {
 
 export const authService = {
   async sendCompanySignupEmailOtp(payload: { email: string }): Promise<{ sent: true }> {
-    const email = payload.email.trim().toLowerCase();
+    const email = normalizeAccountEmail(payload.email);
     if (!email) {
       throw new AppError('Email is required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
     }
+
+    await assertEmailAvailableForCompanyAccount(email);
 
     const latest = await authRepository.findLatestCompanySignupOtp(email);
     const cooldownMs = companySignupOtpCooldownMs();
@@ -293,7 +299,8 @@ export const authService = {
   },
 
   async registerCompanyRequest(payload: RegisterCompanyRequestInput) {
-    const adminEmail = payload.adminEmail.trim().toLowerCase();
+    const adminEmail = normalizeAccountEmail(payload.adminEmail);
+    await assertEmailAvailableForCompanyAccount(adminEmail);
     let verifiedEmail: string | null = null;
 
     const token = payload.emailVerificationToken?.trim();

@@ -79,7 +79,7 @@ export const userRepository = {
         include: {
           userRoles: {
             include: {
-              role: { select: { name: true } },
+              role: { select: { name: true, description: true } },
             },
           },
         },
@@ -90,6 +90,17 @@ export const userRepository = {
     const items = rows.map(({ userRoles, ...user }) => ({
       ...user,
       roles: userRoles.map((userRole) => userRole.role.name),
+      roleLabels: userRoles.map((userRole) => {
+        const { name, description } = userRole.role;
+        if (name.startsWith('custom_')) {
+          return description?.trim() || 'Custom role';
+        }
+        if (name === 'hr_manager') return 'HR Manager';
+        if (name === 'recruiter') return 'Recruiter';
+        if (name === 'interviewer') return 'Technical Interviewer';
+        if (name === 'company_admin') return 'Company Admin';
+        return name.replace(/_/g, ' ');
+      }),
     }));
 
     return { items, total };
