@@ -8,6 +8,7 @@ import {
   login,
   logout,
   me,
+  updateProfile,
   refreshToken,
   registerAdmin,
   registerCompanyRequest,
@@ -40,6 +41,7 @@ import {
   verifyCandidatePhoneOtpMsg91Schema,
   sendCandidateSignupEmailOtpSchema,
   verifyCandidateSignupEmailOtpSchema,
+  updateStaffProfileSchema,
 } from '../../validations/auth/auth.validation';
 import multer from 'multer';
 
@@ -219,6 +221,15 @@ authRouter.post('/refresh', validateRequest(refreshSchema), refreshToken);
  *     summary: Get current staff user profile
  */
 authRouter.get('/me', authenticate, me);
+
+/**
+ * @openapi
+ * /api/v1/auth/profile:
+ *   patch:
+ *     tags: [Auth]
+ *     summary: Update current staff user profile
+ */
+authRouter.patch('/profile', authenticate, validateRequest(updateStaffProfileSchema), updateProfile);
 
 /**
  * @openapi

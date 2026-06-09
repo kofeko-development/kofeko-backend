@@ -23,6 +23,8 @@ const envSchema = z.object({
   SUPERADMIN_PASSWORD: z.string().default('kofeko_123'),
   SUPER_ADMIN_SETUP_KEY: z.string().default('dev-superadmin-setup-key'),
   APP_FRONTEND_URL: z.string().url().default('http://localhost:3001'),
+  /** Public base URL of this API (no trailing path). Used for proxied upload URLs. */
+  API_PUBLIC_URL: z.string().url().optional(),
   FRONTEND_URL: z.string().url().optional(),
 
   SMTP_HOST: z.string().optional(),
@@ -167,6 +169,9 @@ export const env = {
   JWT_ACCESS_SECRET: parsed.data.JWT_ACCESS_SECRET ?? parsed.data.JWT_SECRET,
   JWT_REFRESH_SECRET: parsed.data.JWT_REFRESH_SECRET ?? parsed.data.JWT_SECRET,
   FRONTEND_URL: parsed.data.FRONTEND_URL ?? parsed.data.APP_FRONTEND_URL,
+  API_PUBLIC_URL:
+    parsed.data.API_PUBLIC_URL ??
+    `http://localhost:${parsed.data.PORT}`,
   SMTP_FROM: resolvedSmtpFrom,
   /** Effective From header when using Resend. In local `development`, defaults to onboarding@resend.dev if RESEND_FROM is unset. */
   RESEND_EFFECTIVE_FROM: (resendFromExplicit || (useDevResendDefault ? RESEND_DEV_SANDBOX_FROM : resolvedSmtpFrom)).trim(),

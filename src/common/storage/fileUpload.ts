@@ -21,6 +21,11 @@ function uploadLocal(buffer: Buffer, filename: string): string {
   return `http://localhost:${port}/uploads/${key}`;
 }
 
+function publicFileUrl(key: string): string {
+  const apiBase = env.API_PUBLIC_URL.replace(/\/$/, '');
+  return `${apiBase}/api/v1/files/${key}`;
+}
+
 export async function uploadFile(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
   const provider = (env.STORAGE_PROVIDER || 'local').toLowerCase();
 
@@ -52,15 +57,8 @@ export async function uploadFile(buffer: Buffer, filename: string, mimeType: str
         return uploadLocal(buffer, filename);
       }
 
-      const { data } = supabase.storage.from(bucket).getPublicUrl(key);
-
-      if (!data?.publicUrl) {
-        console.warn('Supabase storage returned no public URL, falling back to local storage.');
-        return uploadLocal(buffer, filename);
-      }
-
-      // Bucket must allow public read on uploads/* for logo preview in signup UI.
-      return data.publicUrl;
+      // Private buckets cannot use getPublicUrl in the browser — serve via API proxy instead.
+      return publicFileUrl(key);
     } catch (err) {
       console.warn('Supabase storage exception, falling back to local storage.', err);
       return uploadLocal(buffer, filename);

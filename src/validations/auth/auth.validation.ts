@@ -176,3 +176,14 @@ export const resetPasswordSchema = z.object({
     password: strongPasswordSchema,
   }),
 });
+
+export const updateStaffProfileSchema = z.object({
+  body: z
+    .object({
+      firstName: z.string().min(2).max(80).optional(),
+      lastName: z.string().min(1).max(80).optional(),
+    })
+    .refine((data) => data.firstName !== undefined || data.lastName !== undefined, {
+      message: 'At least one field must be provided',
+    }),
+});

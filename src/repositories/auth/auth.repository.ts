@@ -13,6 +13,7 @@ import { prisma } from '../../config/prisma';
 import { DEFAULT_ROLE_PERMISSION_MATRIX } from '../../common/constants/rolePermissionMatrix';
 import { ROLE_NAMES } from '../../common/constants/roles';
 import { AppError } from '../../common/errors/AppError';
+import { resolveRegistrationContactName, splitContactName } from '../../common/utils/contactName';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 
 type BootstrapTenantAdminInput = {
@@ -276,7 +277,7 @@ export const authRepository = {
         linkedinUrl: input.linkedinUrl,
         twitterUrl: input.twitterUrl,
         termsAccepted: input.termsAccepted,
-        contactName: input.contactName?.trim() || 'Company Admin',
+        contactName: resolveRegistrationContactName(input.contactName, input.adminEmail),
         contactEmail: input.contactEmail?.trim() ?? '',
         adminEmail: input.adminEmail,
         adminPasswordHash: input.adminPasswordHash,
@@ -606,10 +607,7 @@ export const authRepository = {
 
       const companyAdminRoleId = await seedTenantRolesAndPermissions(tx, tenant.id, permissionKeys);
 
-      const contact = registration.contactName.trim();
-      const spaceIdx = contact.indexOf(' ');
-      const firstName = (spaceIdx === -1 ? contact : contact.slice(0, spaceIdx)).trim() || 'Admin';
-      const lastName = (spaceIdx === -1 ? 'User' : contact.slice(spaceIdx + 1)).trim() || 'User';
+      const { firstName, lastName } = splitContactName(registration.contactName, input.adminEmail);
 
       const user = await tx.user.create({
         data: {

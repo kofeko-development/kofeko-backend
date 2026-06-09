@@ -16,10 +16,12 @@ import superAdminRoutes from './superadmin/superadmin.routes';
 import portalRoutes from './portal/portal.routes';
 import aiRoutes from './ai/ai.routes';
 import linkedInRoutes from './linkedin/linkedin.routes';
+import filesRoutes from './files/files.routes';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/files', filesRoutes);
 router.use('/system', systemRoutes);
 router.use('/company', companyRoutes);
 router.use('/tenants', tenantRoutes);

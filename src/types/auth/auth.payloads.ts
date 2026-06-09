@@ -74,3 +74,8 @@ export type ResetPasswordInput = {
   token: string;
   password: string;
 };
+
+export type UpdateStaffProfileInput = {
+  firstName?: string;
+  lastName?: string;
+};

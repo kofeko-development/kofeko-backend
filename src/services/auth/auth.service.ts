@@ -26,8 +26,10 @@ import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { getFirebaseAdmin } from '../../common/firebase/firebaseAdmin';
 import { getSupabaseAdmin } from '../../common/supabase/supabaseAdmin';
 import { authRepository } from '../../repositories/auth/auth.repository';
+import { userRepository } from '../../repositories/user/user.repository';
 import {
   AcceptInviteInput,
+  UpdateStaffProfileInput,
   ForgotPasswordInput,
   LoginInput,
   RefreshTokenInput,
@@ -843,6 +845,24 @@ export const authService = {
     }
 
     return formatAuthUser(user, candidate);
+  },
+
+  async updateProfile(userId: string, tenantId: string, payload: UpdateStaffProfileInput) {
+    const user = await authRepository.findUserByIdAndTenant(userId, tenantId);
+
+    if (!user) {
+      throw new AppError('User not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    const updateData: UpdateStaffProfileInput = {};
+    if (payload.firstName !== undefined) updateData.firstName = payload.firstName.trim();
+    if (payload.lastName !== undefined) updateData.lastName = payload.lastName.trim();
+
+    if (Object.keys(updateData).length > 0) {
+      await userRepository.updateByIdAndTenant(userId, tenantId, updateData);
+    }
+
+    return this.me(userId, tenantId);
   },
 
   async logout(refreshToken: string): Promise<void> {

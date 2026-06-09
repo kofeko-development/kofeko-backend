@@ -15,6 +15,7 @@ import {
   RegisterCandidateInput,
   RegisterCompanyRequestInput,
   ResetPasswordInput,
+  UpdateStaffProfileInput,
 } from '../../types/auth/auth.payloads';
 import { uploadFile } from '../../common/storage/fileUpload';
 import { AppError } from '../../common/errors/AppError';
@@ -121,6 +122,13 @@ export const me = catchAsync(async (req: Request, res: Response) => {
   const { user } = req;
   const result = await authService.me(String(user?.userId), String(user?.tenantId));
   sendSuccess(res, StatusCodes.OK, 'Current user profile', result);
+});
+
+export const updateProfile = catchAsync(async (req: Request, res: Response) => {
+  const { user } = req;
+  const payload = getRequestBody<UpdateStaffProfileInput>(req);
+  const result = await authService.updateProfile(String(user?.userId), String(user?.tenantId), payload);
+  sendSuccess(res, StatusCodes.OK, 'Profile updated successfully', result);
 });
 
 export const logout = catchAsync(async (req: Request, res: Response) => {
