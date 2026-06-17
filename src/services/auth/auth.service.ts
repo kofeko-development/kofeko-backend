@@ -44,14 +44,12 @@ import {
 import { LoginCandidateInput, RegisterCandidateInput } from '../../types/auth/auth.payloads';
 import { auditService } from '../audit/audit.service';
 
-const COMPANY_SIGNUP_OTP_TTL_MS = 10 * 60 * 1000;
-const COMPANY_SIGNUP_OTP_COOLDOWN_MS_PROD = 45 * 1000;
-const COMPANY_SIGNUP_OTP_COOLDOWN_MS_DEV = 10 * 1000;
+const COMPANY_SIGNUP_OTP_TTL_MS = 60 * 1000;
+const COMPANY_SIGNUP_OTP_COOLDOWN_MS = 60 * 1000;
 const COMPANY_SIGNUP_OTP_MAX_ATTEMPTS = 8;
 const COMPANY_SIGNUP_EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 
-const companySignupOtpCooldownMs = () =>
-  env.NODE_ENV === 'development' ? COMPANY_SIGNUP_OTP_COOLDOWN_MS_DEV : COMPANY_SIGNUP_OTP_COOLDOWN_MS_PROD;
+const companySignupOtpCooldownMs = () => COMPANY_SIGNUP_OTP_COOLDOWN_MS;
 
 const CANDIDATE_SIGNUP_OTP_TTL_MS = 10 * 60 * 1000;
 const CANDIDATE_SIGNUP_OTP_COOLDOWN_MS_PROD = 45 * 1000;
@@ -127,9 +125,10 @@ export const authService = {
     await assertEmailAvailableForCompanyAccount(email);
 
     const latest = await authRepository.findLatestCompanySignupOtp(email);
+    const active = await authRepository.findActiveCompanySignupOtp(email);
     const cooldownMs = companySignupOtpCooldownMs();
     const elapsed = latest ? Date.now() - latest.createdAt.getTime() : Infinity;
-    if (latest && !latest.consumedAt && elapsed < cooldownMs) {
+    if (active && latest && !latest.consumedAt && elapsed < cooldownMs) {
       const waitSec = Math.max(1, Math.ceil((cooldownMs - elapsed) / 1000));
       throw new AppError(
         `A verification code was just sent. Please wait ${waitSec} seconds before requesting another.`,
