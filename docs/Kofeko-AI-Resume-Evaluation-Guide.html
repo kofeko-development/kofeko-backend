@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kofeko AI Resume Evaluation Guide</title>
+  <style>
+    @page { margin: 18mm; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      line-height: 1.55;
+      color: #1a1a1a;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px 32px 48px;
+      font-size: 11pt;
+    }
+    h1 { font-size: 22pt; color: #4f46e5; border-bottom: 2px solid #e0e7ff; padding-bottom: 8px; }
+    h2 { font-size: 14pt; color: #312e81; margin-top: 28px; page-break-after: avoid; }
+    h3 { font-size: 12pt; color: #4338ca; margin-top: 18px; }
+    .subtitle { color: #64748b; font-size: 10pt; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10pt; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f1f5f9; font-weight: 600; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .box { background: #eef2ff; border-left: 4px solid #6366f1; padding: 12px 16px; margin: 16px 0; border-radius: 4px; }
+    .warn { background: #fff7ed; border-left-color: #f97316; }
+    pre { background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; font-size: 9pt; overflow-x: auto; border-radius: 4px; white-space: pre-wrap; }
+    ul { padding-left: 22px; }
+    li { margin-bottom: 4px; }
+    .print-hint { background: #ecfdf5; border: 1px solid #6ee7b7; padding: 10px 14px; border-radius: 6px; font-size: 10pt; margin-bottom: 24px; }
+    @media print {
+      .print-hint { display: none; }
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<p class="print-hint"><strong>Save as PDF:</strong> Open this file in Chrome/Safari → File → Print → Save as PDF. <strong>Word:</strong> Open this file in Microsoft Word → Save As → .docx</p>
+
+<h1>Kofeko AI Resume Evaluation</h1>
+<p class="subtitle">Simple guide: parsing, weights, skills, years, and how the match % works · June 2026</p>
+
+<div class="box">
+  <strong>30-second summary:</strong> Kofeko reads your resume file → sends text + job description + skill weights to AI (Replicate) → AI returns a <strong>0–100% match score</strong> and a detailed breakdown. There is no fixed calculator formula in code; the AI follows written rules. <strong>Weight (0–10)</strong> tells the AI which skills matter most for your job.
+</div>
+
+<h2>1. Two ways a resume gets “parsed”</h2>
+<table>
+  <tr><th>Flow</th><th>When</th><th>Purpose</th></tr>
+  <tr><td><strong>Profile parse</strong></td><td>Candidate uploads on My Profile</td><td>Auto-fill skills, experience, education</td></tr>
+  <tr><td><strong>Evaluation parse</strong></td><td>Evaluate with AI / AI Lab</td><td>Score resume against a specific job</td></tr>
+</table>
+
+<h3>Step A — Extract text (not AI)</h3>
+<ul>
+  <li><strong>PDF</strong> → pdf-parse library</li>
+  <li><strong>DOCX</strong> → mammoth library</li>
+  <li><strong>TXT</strong> → read directly</li>
+  <li>Max size: <strong>8 MB</strong></li>
+  <li>Evaluation uses first <strong>~14,000 characters</strong> of resume text</li>
+</ul>
+
+<h3>Step B — AI structures &amp; scores</h3>
+<p>The AI extracts summary, skills, jobs, education, projects, hobbies — then compares everything to your job.</p>
+
+<h2>2. What goes into an evaluation?</h2>
+<ol>
+  <li><strong>Job title</strong> (e.g. Senior MERN Developer)</li>
+  <li><strong>Job description (JD)</strong> — full role text</li>
+  <li><strong>Skill priorities</strong> — each skill with <strong>weight 0–10</strong></li>
+  <li><strong>Resume text</strong> from the file</li>
+</ol>
+
+<div class="box warn">
+  <strong>Important about “years”:</strong> When you set <em>years of experience</em> on a skill in JD Creator / job posting, that value is <strong>saved on the job</strong> but is <strong>not sent to the evaluation AI today</strong>. Only <strong>skill name + weight</strong> are sent. The AI still reads how many years the candidate actually has from resume dates and job history.
+</div>
+
+<h2>3. Skill weight — what it means</h2>
+<p><strong>Weight = how important this skill is for YOUR company on THIS job.</strong></p>
+<table>
+  <tr><th>Weight</th><th>Typical meaning</th></tr>
+  <tr><td>9–10</td><td>Must-have / deal-breaker</td></tr>
+  <tr><td>7–8</td><td>Very important</td></tr>
+  <tr><td>5–6</td><td>Important</td></tr>
+  <tr><td>3–4</td><td>Nice to have</td></tr>
+  <tr><td>1–2</td><td>Minor / bonus</td></tr>
+</table>
+
+<p>For each priority skill the AI returns:</p>
+<table>
+  <tr><th>Field</th><th>Meaning</th></tr>
+  <tr><td><strong>matched</strong></td><td>true if resume shows evidence (React = React.js OK)</td></tr>
+  <tr><td><strong>contribution</strong></td><td>How much this skill helped the score (strong evidence + high weight = more)</td></tr>
+  <tr><td><strong>evidence</strong></td><td>Short quote from resume</td></tr>
+</table>
+<ul>
+  <li>Skill <strong>missing</strong> → matched false, contribution 0</li>
+  <li>Skill <strong>found</strong> → matched true, contribution scales with weight + evidence strength</li>
+  <li><strong>No weights set?</strong> AI infers priorities only from JD text (less predictable)</li>
+</ul>
+
+<h2>4. Weight vs years — what’s the difference?</h2>
+<table>
+  <tr><th></th><th>Weight (0–10)</th><th>Years on skill (job setting)</th></tr>
+  <tr><td>Meaning</td><td>How much you <em>care</em> about the skill</td><td>How many years you <em>expect</em></td></tr>
+  <tr><td>Used in evaluation?</td><td><strong>Yes</strong></td><td><strong>Not yet</strong> (AI reads years from resume)</td></tr>
+  <tr><td>Affects score how?</td><td>Missing high-weight skill hurts a lot</td><td>Via experience section if resume shows short/long tenure</td></tr>
+</table>
+
+<h3>Example A — same skills, different weights</h3>
+<p>Job: Full Stack Developer · React weight <strong>10</strong>, Python weight <strong>3</strong></p>
+<ul>
+  <li><strong>Candidate A:</strong> 3 years React on resume → likely <strong>higher</strong> score</li>
+  <li><strong>Candidate B:</strong> Expert Python, no React → loses on weight-10 skill → <strong>lower</strong> score</li>
+</ul>
+
+<h3>Example B — same skill, different years on resume</h3>
+<p>Both have React (weight 10). Candidate X: 5 years React. Candidate Y: 6 months React.</p>
+<ul>
+  <li>Both can show <strong>matched: true</strong> for React</li>
+  <li>Candidate X usually gets higher <strong>experience</strong> section score → higher <strong>overall %</strong></li>
+  <li>AI also considers seniority fit in <strong>roleFitNotes</strong></li>
+</ul>
+
+<h3>Example C — two jobs, same candidate</h3>
+<p>Same resume. Job 1 (React Lead): React weight 10. Job 2 (Java Backend): React weight 2, Java weight 10.</p>
+<p>The <strong>same skills</strong> produce <strong>different scores</strong> because weights change what matters.</p>
+
+<h2>5. The match % (0–100)</h2>
+<p><strong>Overall score</strong> = the main number you see (e.g. 78% match).</p>
+
+<h3>Section scores (each 0–100)</h3>
+<table>
+  <tr><th>Section</th><th>What it measures</th></tr>
+  <tr><td>skills</td><td>Alignment with required/preferred skills</td></tr>
+  <tr><td>experience</td><td>Relevant roles, tenure, career path</td></tr>
+  <tr><td>projects</td><td>Portfolio work vs job needs</td></tr>
+  <tr><td>education</td><td>Degrees and relevance</td></tr>
+  <tr><td>professionalSummary</td><td>Summary / headline fit</td></tr>
+  <tr><td>hobbies</td><td><strong>Almost no impact</strong> on overall (by design)</td></tr>
+</table>
+
+<h3>What pushes score UP</h3>
+<ul>
+  <li>High-weight skills matched with clear evidence</li>
+  <li>Experience in the same domain and seniority as JD</li>
+  <li>Strong projects using the job’s tech stack</li>
+  <li>Clear career progression</li>
+</ul>
+
+<h3>What pushes score DOWN</h3>
+<ul>
+  <li>Missing must-have skills (weight 8–10)</li>
+  <li>Wrong specialty (e.g. ML resume for frontend role)</li>
+  <li>Weak or unrelated experience</li>
+  <li>Listed in <strong>matchScoreBreakdown.deductions</strong> (factor + points + reason)</li>
+</ul>
+
+<h2>6. Full flow</h2>
+<pre>Resume file (PDF / DOCX / TXT)
+    ↓
+Extract plain text
+    ↓
+Job title + JD + skill weights (0–10 each)
+    ↓
+AI (Replicate) — hiring analyst
+    ↓
+Results:
+  • Overall % (0–100)
+  • Section scores
+  • Per-skill: matched, contribution, evidence
+  • Strengths, gaps, risks, interview recommendation
+    ↓
+Saved as Evaluation (production) or shown in AI Lab (test only)</pre>
+
+<h2>7. Where to test</h2>
+<table>
+  <tr><th>Feature</th><th>Where</th></tr>
+  <tr><td>Generate JD + suggested skills</td><td>JD Creator</td></tr>
+  <tr><td>Score one candidate</td><td>Job posting → applicant → Evaluate with AI</td></tr>
+  <tr><td>Score many resumes (no DB save)</td><td>Sidebar → <strong>AI Lab</strong></td></tr>
+  <tr><td>Parse profile only</td><td>Candidate My Profile</td></tr>
+</table>
+
+<h2>8. Quick reference</h2>
+<table>
+  <tr><th>Question</th><th>Answer</th></tr>
+  <tr><td>What is weight?</td><td>Skill importance 0–10 for this job</td></tr>
+  <tr><td>What is years on skill?</td><td>Expected years (stored; not in AI prompt yet)</td></tr>
+  <tr><td>Is score a formula?</td><td>No — AI applies rules, not a spreadsheet</td></tr>
+  <tr><td>AI provider?</td><td>Replicate (REPLICATE_API_TOKEN)</td></tr>
+</table>
+
+<p style="margin-top:32px;color:#64748b;font-size:9pt;">Kofeko · Based on analyzeResume.ts, parseResume.ts, evaluation.service.ts · June 2026</p>
+
+</body>
+</html>
