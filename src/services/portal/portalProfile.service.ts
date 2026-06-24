@@ -2,6 +2,7 @@ import { StatusCodes } from 'http-status-codes';
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
+import { cacheService } from '../../common/cache/cacheService';
 
 export const portalProfileService = {
   async updateProfile(
@@ -47,6 +48,8 @@ export const portalProfileService = {
     if (updated.count === 0) {
       throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
+
+    await cacheService.invalidateCandidateSession(tenantId, candidateId);
 
     return prisma.candidate.findFirstOrThrow({
       where: { id: candidateId, tenantId },

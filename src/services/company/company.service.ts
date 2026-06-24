@@ -5,6 +5,8 @@ import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { companyRepository } from '../../repositories/company/company.repository';
 import { CreateCompanyInput, UpdateCompanyInput } from '../../types/company/company.types';
 import { auditService } from '../audit/audit.service';
+import { cacheService, cacheKeys } from '../../common/cache/cacheService';
+import { env } from '../../config/env';
 
 type CompanyProfile = {
   tenant: { id: string; name: string; slug: string };
@@ -22,6 +24,7 @@ export const companyService = {
       entityId: company.id,
       metadata: { companyName: company.companyName },
     });
+    await cacheService.invalidateCompany(tenantId);
     return this.getCompanyProfileByTenantId(tenantId);
   },
 
@@ -38,11 +41,14 @@ export const companyService = {
   async getCompanyProfileByTenantId(
     tenantId: string,
   ): Promise<CompanyProfile> {
-    const result = await companyRepository.findCompanyWithTenantInfo(tenantId);
-    if (!result) {
-      throw new AppError('Company not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
-    }
-    return result;
+    const cacheKey = cacheKeys.companyProfile(tenantId);
+    return cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, async () => {
+      const result = await companyRepository.findCompanyWithTenantInfo(tenantId);
+      if (!result) {
+        throw new AppError('Company not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+      }
+      return result;
+    });
   },
 
   async updateCompanyByTenantId(
@@ -60,6 +66,7 @@ export const companyService = {
       entityId: company.id,
       metadata: { before, after: company },
     });
+    await cacheService.invalidateCompany(tenantId);
     return this.getCompanyProfileByTenantId(tenantId);
   },
 };

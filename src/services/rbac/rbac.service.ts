@@ -4,6 +4,7 @@ import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { rbacRepository } from '../../repositories/rbac/rbac.repository';
 import { AssignRoleToUserInput, AttachPermissionToRoleInput, CreatePermissionInput, CreateRoleInput } from '../../types/rbac/rbac.types';
+import { cacheService } from '../../common/cache/cacheService';
 
 export const rbacService = {
   async createRole(payload: CreateRoleInput): Promise<Role> {
@@ -41,7 +42,9 @@ export const rbacService = {
       throw new AppError('User not found in tenant', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
 
-    return rbacRepository.assignRoleToUser(payload);
+    const result = await rbacRepository.assignRoleToUser(payload);
+    await cacheService.invalidateStaffSession(payload.tenantId, payload.userId);
+    return result;
   },
 
   async getUserPermissions(tenantId: string, userId: string): Promise<string[]> {

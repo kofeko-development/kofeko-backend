@@ -12,6 +12,15 @@ import { assertValidStageTransition } from '../../common/constants/pipelineStage
 import { prisma } from '../../config/prisma';
 import { ROLE_NAMES } from '../../common/constants/roles';
 import { communicationService } from '../communication/communication.service';
+import { cacheService, cacheKeys } from '../../common/cache/cacheService';
+import { env } from '../../config/env';
+
+function pipelinesQueryKey(
+  filters: PipelineListFilters,
+  pagination: PaginationInput,
+): string {
+  return `${filters.jobId ?? ''}:${filters.candidateId ?? ''}:${filters.stage ?? ''}:${pagination.page}:${pagination.limit}`;
+}
 
 const resolveCandidateStatusFromStage = (stage: string): CandidateStatus => {
   switch (stage) {
@@ -91,6 +100,7 @@ export const pipelineService = {
       entityId: pipeline.id,
       metadata: { jobId: pipeline.jobId, candidateId: pipeline.candidateId, stage: pipeline.stage },
     });
+    await cacheService.invalidateTenantPipelines(payload.tenantId, payload.jobId);
     return pipeline;
   },
 
@@ -122,9 +132,20 @@ export const pipelineService = {
     totalPages: number;
   }> {
     const { filters, pagination } = input;
-    const result = await pipelineRepository.listByTenant(tenantId, filters, pagination);
-    const totalPages = Math.max(1, Math.ceil(result.total / pagination.limit));
-    return { items: result.items, total: result.total, page: pagination.page, limit: pagination.limit, totalPages };
+    const queryKey = pipelinesQueryKey(filters, pagination);
+    const cacheKey = cacheKeys.pipelinesList(tenantId, queryKey);
+    const result = await cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, async () => {
+      const listed = await pipelineRepository.listByTenant(tenantId, filters, pagination);
+      const totalPages = Math.max(1, Math.ceil(listed.total / pagination.limit));
+      return {
+        items: listed.items,
+        total: listed.total,
+        page: pagination.page,
+        limit: pagination.limit,
+        totalPages,
+      };
+    });
+    return result;
   },
 
   async advanceStage(
@@ -261,6 +282,7 @@ export const pipelineService = {
       // fire-and-forget
     }
 
+    await cacheService.invalidateTenantPipelines(tenantId, currentPipeline.jobId);
     return updatedPipeline;
   },
 

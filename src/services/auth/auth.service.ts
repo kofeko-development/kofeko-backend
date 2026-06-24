@@ -27,6 +27,7 @@ import {
 import { passwordResetEmailTemplate } from '../../common/email/templates/passwordResetEmail';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
+import { cacheService, cacheKeys } from '../../common/cache/cacheService';
 import { getFirebaseAdmin } from '../../common/firebase/firebaseAdmin';
 import { getSupabaseAdmin } from '../../common/supabase/supabaseAdmin';
 import { authRepository } from '../../repositories/auth/auth.repository';
@@ -835,22 +836,24 @@ export const authService = {
   },
 
   async me(userId: string, tenantId: string) {
-    const user = await authRepository.findUserByIdAndTenant(userId, tenantId);
+    const cacheKey = cacheKeys.staffSession(tenantId, userId);
+    return cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, async () => {
+      const user = await authRepository.findUserByIdAndTenant(userId, tenantId);
 
-    if (!user) {
-      throw new AppError('User not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
-    }
+      if (!user) {
+        throw new AppError('User not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+      }
 
-    // If it's a candidate, fetch candidate profile data to merge
-    let candidate = null;
-    const roles = (user.userRoles ?? []).map((ur: any) => ur.role?.name);
-    if (roles.includes('candidate')) {
-      candidate = await prisma.candidate.findUnique({
-        where: { id: userId },
-      });
-    }
+      let candidate = null;
+      const roles = (user.userRoles ?? []).map((ur: any) => ur.role?.name);
+      if (roles.includes('candidate')) {
+        candidate = await prisma.candidate.findUnique({
+          where: { id: userId },
+        });
+      }
 
-    return formatAuthUser(user, candidate);
+      return formatAuthUser(user, candidate);
+    });
   },
 
   async updateProfile(userId: string, tenantId: string, payload: UpdateStaffProfileInput) {
@@ -866,6 +869,7 @@ export const authService = {
 
     if (Object.keys(updateData).length > 0) {
       await userRepository.updateByIdAndTenant(userId, tenantId, updateData);
+      await cacheService.invalidateStaffSession(tenantId, userId);
     }
 
     return this.me(userId, tenantId);
@@ -882,6 +886,7 @@ export const authService = {
     }
 
     await authRepository.revokeSession(session.id);
+    await cacheService.invalidateStaffSession(decoded.tenantId, decoded.sub);
   },
 
   async acceptInvite(payload: AcceptInviteInput) {

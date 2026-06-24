@@ -2,11 +2,25 @@ import { Job } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
+import { cacheService, cacheKeys } from '../../common/cache/cacheService';
+import { env } from '../../config/env';
 import { auditService } from '../audit/audit.service';
 import { jobRepository } from '../../repositories/job/job.repository';
 import { companyRepository } from '../../repositories/company/company.repository';
 import { CreateJobInput, UpdateJobInput } from '../../types/job/job.types';
 import { PaginationInput } from '../../common/utils/pagination';
+
+function jobsListQueryKey(input: PaginationInput & { status?: Job['status']; department?: string }): string {
+  return `${input.page}:${input.limit}:${input.status ?? ''}:${input.department ?? ''}`;
+}
+
+async function bustJobCaches(tenantId: string, jobId?: string): Promise<void> {
+  if (jobId) {
+    await cacheService.invalidateJob(tenantId, jobId);
+  } else {
+    await cacheService.invalidateTenantJobs(tenantId);
+  }
+}
 
 export const jobService = {
   async createJob(payload: CreateJobInput, actorId?: string): Promise<Job> {
@@ -31,27 +45,35 @@ export const jobService = {
       entityId: job.id,
       metadata: { title: job.title, status: job.status },
     });
+    await bustJobCaches(payload.tenantId);
     return job;
   },
 
   async getJobById(id: string, tenantId: string): Promise<Job> {
-    const job = await jobRepository.findByIdAndTenant(id, tenantId);
-    if (!job) {
-      throw new AppError('Job not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
-    }
-    return job;
+    const cacheKey = cacheKeys.jobDetail(tenantId, id);
+    return cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, async () => {
+      const job = await jobRepository.findByIdAndTenant(id, tenantId);
+      if (!job) {
+        throw new AppError('Job not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+      }
+      return job;
+    });
   },
 
   async listJobsByTenant(
     tenantId: string,
     input: PaginationInput & { status?: Job['status']; department?: string },
   ): Promise<{ items: Job[]; total: number }> {
-    return jobRepository.listByTenant(tenantId, {
-      page: input.page,
-      limit: input.limit,
-      status: input.status,
-      department: input.department,
-    });
+    const queryKey = jobsListQueryKey(input);
+    const cacheKey = cacheKeys.jobsList(tenantId, queryKey);
+    return cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, () =>
+      jobRepository.listByTenant(tenantId, {
+        page: input.page,
+        limit: input.limit,
+        status: input.status,
+        department: input.department,
+      }),
+    );
   },
 
   async updateJob(id: string, tenantId: string, payload: UpdateJobInput, actorId?: string): Promise<Job> {
@@ -72,6 +94,7 @@ export const jobService = {
       entityId: updatedJob.id,
       metadata: { before: currentJob, after: updatedJob },
     });
+    await bustJobCaches(tenantId, id);
     return updatedJob;
   },
 
@@ -94,6 +117,7 @@ export const jobService = {
       entityId: updated.id,
       metadata: { beforeStatus: currentJob.status, afterStatus: updated.status },
     });
+    await bustJobCaches(tenantId, id);
     return updated;
   },
 
@@ -111,6 +135,7 @@ export const jobService = {
       entityId: updated.id,
       metadata: { beforeStatus: currentJob.status, afterStatus: updated.status },
     });
+    await bustJobCaches(tenantId, id);
     return updated;
   },
 
@@ -126,6 +151,7 @@ export const jobService = {
       entityId: updated.id,
       metadata: { beforeStatus: currentJob.status, afterStatus: updated.status },
     });
+    await bustJobCaches(tenantId, id);
     return updated;
   },
 
@@ -147,5 +173,6 @@ export const jobService = {
       entityId: id,
       metadata: { title: job.title },
     });
+    await bustJobCaches(tenantId, id);
   },
 };
