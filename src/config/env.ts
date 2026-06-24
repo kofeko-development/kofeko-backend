@@ -71,7 +71,12 @@ const envSchema = z.object({
 
   /** Redis URL for session profile + API response cache (optional — falls back to in-memory). */
   REDIS_URL: z.string().url().optional(),
+  /** Session/auth cache TTL (seconds). */
   CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
+  /** List/read API cache TTL (seconds). */
+  CACHE_LIST_TTL_SECONDS: z.coerce.number().int().positive().default(120),
+  /** Company profile, integrations status, etc. (seconds). */
+  CACHE_STATIC_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -6,6 +6,13 @@ import { auditService } from '../audit/audit.service';
 import { candidateRepository } from '../../repositories/candidate/candidate.repository';
 import { CreateCandidateInput, UpdateCandidateInput } from '../../types/candidate/candidate.types';
 import { PaginationInput } from '../../common/utils/pagination';
+import { cacheKeys, cacheService } from '../../common/cache/cacheService';
+import { CACHE_LIST_TTL } from '../../common/cache/cacheTtl';
+
+function candidatesQueryKey(input: { pagination: PaginationInput; status?: string; skills?: string[] }): string {
+  const skills = input.skills?.slice().sort().join(',') ?? '';
+  return `${input.pagination.page}:${input.pagination.limit}:${input.status ?? ''}:${skills}`;
+}
 
 export const candidateService = {
   async createCandidate(payload: CreateCandidateInput, actorId?: string): Promise<Candidate> {
@@ -27,6 +34,7 @@ export const candidateService = {
       entityId: candidate.id,
       metadata: { email: candidate.email, status: candidate.status },
     });
+    await cacheService.invalidateCandidatesList(payload.tenantId);
     return candidate;
   },
 
@@ -42,6 +50,9 @@ export const candidateService = {
     tenantId: string,
     input: { pagination: PaginationInput; status?: string; skills?: string[] },
   ): Promise<{ items: Candidate[]; total: number; page: number; limit: number; totalPages: number }> {
+    const queryKey = candidatesQueryKey(input);
+    const cacheKey = cacheKeys.candidatesList(tenantId, queryKey);
+    return cacheService.getOrSet(cacheKey, CACHE_LIST_TTL, async () => {
     const status = input.status as Candidate['status'] | undefined;
     const { page, limit } = input.pagination;
     const result = await candidateRepository.listByTenant(tenantId, {
@@ -52,6 +63,7 @@ export const candidateService = {
     });
     const totalPages = Math.max(1, Math.ceil(result.total / limit));
     return { items: result.items, total: result.total, page, limit, totalPages };
+    });
   },
 
   async updateCandidate(id: string, tenantId: string, payload: UpdateCandidateInput, actorId?: string): Promise<Candidate> {
@@ -65,6 +77,7 @@ export const candidateService = {
       entityId: updatedCandidate.id,
       metadata: { before: currentCandidate, after: updatedCandidate },
     });
+    await cacheService.invalidateCandidatesList(tenantId);
     return updatedCandidate;
   },
 
@@ -80,6 +93,7 @@ export const candidateService = {
       entityId: updatedCandidate.id,
       metadata: { from: currentCandidate.status, to: updatedCandidate.status },
     });
+    await cacheService.invalidateCandidatesList(tenantId);
     return updatedCandidate;
   },
 };

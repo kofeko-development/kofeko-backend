@@ -6,7 +6,7 @@ import { companyRepository } from '../../repositories/company/company.repository
 import { CreateCompanyInput, UpdateCompanyInput } from '../../types/company/company.types';
 import { auditService } from '../audit/audit.service';
 import { cacheService, cacheKeys } from '../../common/cache/cacheService';
-import { env } from '../../config/env';
+import { CACHE_STATIC_TTL } from '../../common/cache/cacheTtl';
 
 type CompanyProfile = {
   tenant: { id: string; name: string; slug: string };
@@ -42,7 +42,7 @@ export const companyService = {
     tenantId: string,
   ): Promise<CompanyProfile> {
     const cacheKey = cacheKeys.companyProfile(tenantId);
-    return cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, async () => {
+    return cacheService.getOrSet(cacheKey, CACHE_STATIC_TTL, async () => {
       const result = await companyRepository.findCompanyWithTenantInfo(tenantId);
       if (!result) {
         throw new AppError('Company not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);

@@ -13,7 +13,7 @@ import { prisma } from '../../config/prisma';
 import { ROLE_NAMES } from '../../common/constants/roles';
 import { communicationService } from '../communication/communication.service';
 import { cacheService, cacheKeys } from '../../common/cache/cacheService';
-import { env } from '../../config/env';
+import { CACHE_LIST_TTL } from '../../common/cache/cacheTtl';
 
 function pipelinesQueryKey(
   filters: PipelineListFilters,
@@ -101,6 +101,7 @@ export const pipelineService = {
       metadata: { jobId: pipeline.jobId, candidateId: pipeline.candidateId, stage: pipeline.stage },
     });
     await cacheService.invalidateTenantPipelines(payload.tenantId, payload.jobId);
+    await cacheService.invalidateMyApplications(payload.candidateId);
     return pipeline;
   },
 
@@ -134,7 +135,7 @@ export const pipelineService = {
     const { filters, pagination } = input;
     const queryKey = pipelinesQueryKey(filters, pagination);
     const cacheKey = cacheKeys.pipelinesList(tenantId, queryKey);
-    const result = await cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, async () => {
+    const result = await cacheService.getOrSet(cacheKey, CACHE_LIST_TTL, async () => {
       const listed = await pipelineRepository.listByTenant(tenantId, filters, pagination);
       const totalPages = Math.max(1, Math.ceil(listed.total / pagination.limit));
       return {
@@ -283,6 +284,7 @@ export const pipelineService = {
     }
 
     await cacheService.invalidateTenantPipelines(tenantId, currentPipeline.jobId);
+    await cacheService.invalidateMyApplications(currentPipeline.candidateId, id);
     return updatedPipeline;
   },
 

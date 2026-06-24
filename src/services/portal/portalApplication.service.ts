@@ -3,6 +3,12 @@ import { prisma } from '../../config/prisma';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { communicationService } from '../communication/communication.service';
+import { cacheKeys, cacheService } from '../../common/cache/cacheService';
+import { CACHE_LIST_TTL } from '../../common/cache/cacheTtl';
+
+function applicationsQueryKey(pagination: { page: number; limit: number }): string {
+  return `${pagination.page}:${pagination.limit}`;
+}
 
 export const portalApplicationService = {
   async applyToJob(
@@ -70,6 +76,8 @@ export const portalApplicationService = {
       // fire-and-forget
     }
 
+    await cacheService.invalidateMyApplications(candidateId);
+
     return {
       pipelineId: pipeline.id,
       jobTitle: job.title,
@@ -79,6 +87,9 @@ export const portalApplicationService = {
   },
 
   async getMyApplications(candidateId: string, _tenantId: string, pagination: { page: number; limit: number }) {
+    const queryKey = applicationsQueryKey(pagination);
+    const cacheKey = cacheKeys.myApplications(candidateId, queryKey);
+    return cacheService.getOrSet(cacheKey, CACHE_LIST_TTL, async () => {
     const currentCandidate = await prisma.candidate.findUnique({
       where: { id: candidateId },
       select: { email: true }
@@ -151,9 +162,12 @@ export const portalApplicationService = {
       limit: pagination.limit,
       totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
     };
+    });
   },
 
   async getMyApplicationById(candidateId: string, _tenantId: string, pipelineId: string) {
+    const cacheKey = cacheKeys.myApplicationDetail(candidateId, pipelineId);
+    return cacheService.getOrSet(cacheKey, CACHE_LIST_TTL, async () => {
     const currentCandidate = await prisma.candidate.findUnique({
       where: { id: candidateId },
       select: { email: true }
@@ -208,6 +222,7 @@ export const portalApplicationService = {
       appliedAt: pipeline.createdAt,
       updatedAt: pipeline.updatedAt,
     };
+    });
   },
 };
 

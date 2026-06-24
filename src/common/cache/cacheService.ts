@@ -51,6 +51,16 @@ export const cacheKeys = {
   jobDetail: (tenantId: string, jobId: string) => `kofeko:job:${tenantId}:${jobId}`,
   pipelinesList: (tenantId: string, queryKey: string) => `kofeko:pipelines:${tenantId}:${queryKey}`,
   companyProfile: (tenantId: string) => `kofeko:company:${tenantId}`,
+  portalJobsAll: (queryKey: string) => `kofeko:portal:jobs:all:${queryKey}`,
+  portalJobDetail: (jobId: string) => `kofeko:portal:job:${jobId}`,
+  portalJobsByTenant: (tenantSlug: string, queryKey: string) => `kofeko:portal:jobs:${tenantSlug}:${queryKey}`,
+  portalJobByTenant: (tenantSlug: string, jobId: string) => `kofeko:portal:job:${tenantSlug}:${jobId}`,
+  myApplications: (candidateId: string, queryKey: string) => `kofeko:applications:${candidateId}:${queryKey}`,
+  myApplicationDetail: (candidateId: string, pipelineId: string) =>
+    `kofeko:application:${candidateId}:${pipelineId}`,
+  teamList: (tenantId: string, queryKey: string) => `kofeko:team:${tenantId}:${queryKey}`,
+  candidatesList: (tenantId: string, queryKey: string) => `kofeko:candidates:${tenantId}:${queryKey}`,
+  linkedInStatus: (userId: string) => `kofeko:linkedin:${userId}`,
 };
 
 export const cacheService = {
@@ -145,5 +155,32 @@ export const cacheService = {
 
   async invalidateCompany(tenantId: string): Promise<void> {
     await this.del(cacheKeys.companyProfile(tenantId));
+  },
+
+  async invalidatePortalJobs(jobId?: string): Promise<void> {
+    await this.delByPrefix('kofeko:portal:jobs:');
+    if (jobId) {
+      await this.del(cacheKeys.portalJobDetail(jobId));
+      await this.delByPrefix('kofeko:portal:job:');
+    }
+  },
+
+  async invalidateMyApplications(candidateId: string, pipelineId?: string): Promise<void> {
+    await this.delByPrefix(`kofeko:applications:${candidateId}:`);
+    if (pipelineId) {
+      await this.del(cacheKeys.myApplicationDetail(candidateId, pipelineId));
+    }
+  },
+
+  async invalidateTeamList(tenantId: string): Promise<void> {
+    await this.delByPrefix(`kofeko:team:${tenantId}:`);
+  },
+
+  async invalidateCandidatesList(tenantId: string): Promise<void> {
+    await this.delByPrefix(`kofeko:candidates:${tenantId}:`);
+  },
+
+  async invalidateLinkedInStatus(userId: string): Promise<void> {
+    await this.del(cacheKeys.linkedInStatus(userId));
   },
 };

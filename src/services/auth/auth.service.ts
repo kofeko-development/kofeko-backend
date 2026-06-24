@@ -28,6 +28,7 @@ import { passwordResetEmailTemplate } from '../../common/email/templates/passwor
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { cacheService, cacheKeys } from '../../common/cache/cacheService';
+import { CACHE_SESSION_TTL } from '../../common/cache/cacheTtl';
 import { getFirebaseAdmin } from '../../common/firebase/firebaseAdmin';
 import { getSupabaseAdmin } from '../../common/supabase/supabaseAdmin';
 import { authRepository } from '../../repositories/auth/auth.repository';
@@ -837,7 +838,7 @@ export const authService = {
 
   async me(userId: string, tenantId: string) {
     const cacheKey = cacheKeys.staffSession(tenantId, userId);
-    return cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, async () => {
+    return cacheService.getOrSet(cacheKey, CACHE_SESSION_TTL, async () => {
       const user = await authRepository.findUserByIdAndTenant(userId, tenantId);
 
       if (!user) {

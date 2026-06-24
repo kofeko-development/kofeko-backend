@@ -8,6 +8,7 @@ import { communicationService } from '../communication/communication.service';
 import { candidateWelcomeEmail } from '../../common/email/templates/candidateWelcomeEmail';
 import { env } from '../../config/env';
 import { cacheService, cacheKeys } from '../../common/cache/cacheService';
+import { CACHE_SESSION_TTL } from '../../common/cache/cacheTtl';
 
 const ensureActiveTenantBySlug = async (tenantSlug: string) => {
   const tenant = await prisma.tenant.findUnique({
@@ -189,7 +190,7 @@ export const candidateAuthService = {
 
   async me(candidateId: string, tenantId: string) {
     const cacheKey = cacheKeys.candidateSession(tenantId, candidateId);
-    return cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, async () => {
+    return cacheService.getOrSet(cacheKey, CACHE_SESSION_TTL, async () => {
     const candidate = await prisma.candidate.findFirst({
       where: { id: candidateId, tenantId },
       select: {

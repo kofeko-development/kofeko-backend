@@ -19,6 +19,8 @@ import { authRepository } from '../../repositories/auth/auth.repository';
 import { userRepository } from '../../repositories/user/user.repository';
 import { CreateUserInput, InviteUserInput, UpdateUserInput } from '../../types/user/user.types';
 import { PaginationInput } from '../../common/utils/pagination';
+import { cacheKeys, cacheService } from '../../common/cache/cacheService';
+import { CACHE_LIST_TTL } from '../../common/cache/cacheTtl';
 import {
   assertEmailAvailableForCompanyAccount,
   normalizeAccountEmail,
@@ -105,7 +107,7 @@ export const userService = {
     const roleName = payload.roleName ?? ROLE_NAMES.RECRUITER;
     const role = await resolveRoleForTenant(payload.tenantId, roleName);
 
-    return userRepository.createWithRole({
+    const user = await userRepository.createWithRole({
       tenantId: payload.tenantId,
       firstName: payload.firstName,
       lastName: payload.lastName,
@@ -114,6 +116,8 @@ export const userService = {
       roleId: role.id,
       status: payload.status ?? UserStatus.active,
     });
+    await cacheService.invalidateTeamList(payload.tenantId);
+    return user;
   },
 
   async inviteUser(payload: InviteUserInput): Promise<User> {
@@ -218,6 +222,7 @@ export const userService = {
       },
     });
 
+    await cacheService.invalidateTeamList(payload.tenantId);
     return user;
   },
 
@@ -232,7 +237,11 @@ export const userService = {
   },
 
   async listUsersByTenant(tenantId: string, pagination: PaginationInput): Promise<{ items: User[]; total: number }> {
-    return userRepository.listByTenant(tenantId, { page: pagination.page, limit: pagination.limit });
+    const queryKey = `${pagination.page}:${pagination.limit}`;
+    const cacheKey = cacheKeys.teamList(tenantId, queryKey);
+    return cacheService.getOrSet(cacheKey, CACHE_LIST_TTL, () =>
+      userRepository.listByTenant(tenantId, { page: pagination.page, limit: pagination.limit }),
+    );
   },
 
   async updateUser(id: string, tenantId: string, payload: UpdateUserInput): Promise<User> {
@@ -266,9 +275,11 @@ export const userService = {
       ) {
         await prisma.session.deleteMany({ where: { tenantId, userId: id } });
       }
+      await cacheService.invalidateTeamList(tenantId);
       return updated;
     }
-    
+
+    await cacheService.invalidateTeamList(tenantId);
     return this.getUserById(id, tenantId);
   },
 
@@ -282,5 +293,6 @@ export const userService = {
       prisma.session.deleteMany({ where: { tenantId, userId: id } }),
       prisma.user.delete({ where: { id, tenantId } })
     ]);
+    await cacheService.invalidateTeamList(tenantId);
   },
 };

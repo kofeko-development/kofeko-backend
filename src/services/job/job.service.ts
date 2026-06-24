@@ -3,7 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { cacheService, cacheKeys } from '../../common/cache/cacheService';
-import { env } from '../../config/env';
+import { CACHE_LIST_TTL } from '../../common/cache/cacheTtl';
 import { auditService } from '../audit/audit.service';
 import { jobRepository } from '../../repositories/job/job.repository';
 import { companyRepository } from '../../repositories/company/company.repository';
@@ -17,8 +17,10 @@ function jobsListQueryKey(input: PaginationInput & { status?: Job['status']; dep
 async function bustJobCaches(tenantId: string, jobId?: string): Promise<void> {
   if (jobId) {
     await cacheService.invalidateJob(tenantId, jobId);
+    await cacheService.invalidatePortalJobs(jobId);
   } else {
     await cacheService.invalidateTenantJobs(tenantId);
+    await cacheService.invalidatePortalJobs();
   }
 }
 
@@ -51,7 +53,7 @@ export const jobService = {
 
   async getJobById(id: string, tenantId: string): Promise<Job> {
     const cacheKey = cacheKeys.jobDetail(tenantId, id);
-    return cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, async () => {
+    return cacheService.getOrSet(cacheKey, CACHE_LIST_TTL, async () => {
       const job = await jobRepository.findByIdAndTenant(id, tenantId);
       if (!job) {
         throw new AppError('Job not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
@@ -66,7 +68,7 @@ export const jobService = {
   ): Promise<{ items: Job[]; total: number }> {
     const queryKey = jobsListQueryKey(input);
     const cacheKey = cacheKeys.jobsList(tenantId, queryKey);
-    return cacheService.getOrSet(cacheKey, env.CACHE_TTL_SECONDS, () =>
+    return cacheService.getOrSet(cacheKey, CACHE_LIST_TTL, () =>
       jobRepository.listByTenant(tenantId, {
         page: input.page,
         limit: input.limit,

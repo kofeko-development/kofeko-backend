@@ -4,6 +4,8 @@ import { env } from '../../config/env';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { encrypt, decrypt } from '../../common/utils/encrypt';
+import { cacheKeys, cacheService } from '../../common/cache/cacheService';
+import { CACHE_STATIC_TTL } from '../../common/cache/cacheTtl';
 import { generatePostText, generateShareUrl } from '../../common/linkedin/postTextGenerator';
 import {
   fetchImageBytes,
@@ -420,6 +422,8 @@ export async function exchangeCodeForTokens(code: string, state: string) {
     },
   });
 
+  await cacheService.invalidateLinkedInStatus(userId);
+
   await auditService.createAuditLog({
     tenantId,
     actorId: userId,
@@ -433,6 +437,8 @@ export async function exchangeCodeForTokens(code: string, state: string) {
 }
 
 export async function getConnectionStatus(userId: string) {
+  const cacheKey = cacheKeys.linkedInStatus(userId);
+  return cacheService.getOrSet(cacheKey, CACHE_STATIC_TTL, async () => {
   const conn = await prisma.linkedInConnection.findUnique({
     where: { userId },
     select: {
@@ -476,6 +482,7 @@ export async function getConnectionStatus(userId: string) {
       linkedInName: conn.linkedInName,
     }),
   };
+  });
 }
 
 export async function refreshOrganizationDiscovery(userId: string) {
@@ -504,6 +511,7 @@ export async function refreshOrganizationDiscovery(userId: string) {
       postAsOrg: true,
     },
   });
+  await cacheService.invalidateLinkedInStatus(userId);
   return {
     orgId: discovered.linkedInOrgId,
     orgName: discovered.linkedInOrgName ?? null,
@@ -539,6 +547,7 @@ export async function setManualOrganization(
       postAsOrg: true,
     },
   });
+  await cacheService.invalidateLinkedInStatus(userId);
   const granted = parseGrantedScopes(conn.scope);
   return {
     orgId: linkedInOrgId,
@@ -567,11 +576,13 @@ export async function updatePostPreference(userId: string, postAsOrg: boolean) {
     where: { userId },
     data: { postAsOrg },
   });
+  await cacheService.invalidateLinkedInStatus(userId);
   return { postAsOrg };
 }
 
 export async function disconnectLinkedIn(userId: string, tenantId: string) {
   await prisma.linkedInConnection.deleteMany({ where: { userId } });
+  await cacheService.invalidateLinkedInStatus(userId);
   await auditService.createAuditLog({
     tenantId,
     actorId: userId,
