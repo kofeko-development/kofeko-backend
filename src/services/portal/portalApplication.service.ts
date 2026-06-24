@@ -77,6 +77,8 @@ export const portalApplicationService = {
     }
 
     await cacheService.invalidateMyApplications(candidateId);
+    await cacheService.invalidateTenantPipelines(tenantId, jobId);
+    await cacheService.invalidateJob(tenantId, jobId);
 
     return {
       pipelineId: pipeline.id,

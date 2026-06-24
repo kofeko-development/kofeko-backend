@@ -102,6 +102,7 @@ export const pipelineService = {
     });
     await cacheService.invalidateTenantPipelines(payload.tenantId, payload.jobId);
     await cacheService.invalidateMyApplications(payload.candidateId);
+    await cacheService.invalidateJob(payload.tenantId, payload.jobId);
     return pipeline;
   },
 
