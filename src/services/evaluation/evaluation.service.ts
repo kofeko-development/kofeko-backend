@@ -13,6 +13,7 @@ import { candidateRepository } from '../../repositories/candidate/candidate.repo
 import { pipelineRepository } from '../../repositories/pipeline/pipeline.repository';
 import type { SkillWeight } from '../../types/ai/ai.types';
 import { CreateEvaluationInput, UpdateEvaluationInput } from '../../types/evaluation/evaluation.types';
+import { cacheService } from '../../common/cache/cacheService';
 
 export const evaluationService = {
   async createEvaluation(payload: CreateEvaluationInput, actorId?: string): Promise<Evaluation> {
@@ -30,6 +31,7 @@ export const evaluationService = {
         whyCard: evaluation.whyCard,
       },
     });
+    await cacheService.invalidateTenantPipelines(payload.tenantId, evaluation.jobId);
     return evaluation;
   },
 
@@ -59,6 +61,7 @@ export const evaluationService = {
       entityId: updatedEvaluation.id,
       metadata: { before: currentEvaluation, after: updatedEvaluation },
     });
+    await cacheService.invalidateTenantPipelines(tenantId, updatedEvaluation.jobId);
     return updatedEvaluation;
   },
 
@@ -161,6 +164,7 @@ export const evaluationService = {
       },
     });
 
+    await cacheService.invalidateTenantPipelines(tenantId, payload.jobId);
     return evaluation;
   },
 
