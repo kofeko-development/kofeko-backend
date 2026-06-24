@@ -40,3 +40,57 @@ export async function disconnectRedis(): Promise<void> {
     client = null;
   }
 }
+
+export type RedisHealthStatus = {
+  configured: boolean;
+  status: 'up' | 'down' | 'not_configured';
+  latencyMs?: number;
+  error?: string;
+};
+
+const HEALTH_CHECK_TIMEOUT_MS = 3000;
+
+export async function checkRedisHealth(): Promise<RedisHealthStatus> {
+  if (!env.REDIS_URL) {
+    return { configured: false, status: 'not_configured' };
+  }
+
+  const redis = getRedisClient();
+  if (!redis) {
+    return {
+      configured: true,
+      status: 'down',
+      error: 'Redis client unavailable',
+    };
+  }
+
+  const start = Date.now();
+  try {
+    const result = await Promise.race([
+      redis.ping(),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Redis health check timed out')), HEALTH_CHECK_TIMEOUT_MS);
+      }),
+    ]);
+
+    if (result !== 'PONG') {
+      return {
+        configured: true,
+        status: 'down',
+        error: `Unexpected ping response: ${result}`,
+      };
+    }
+
+    return {
+      configured: true,
+      status: 'up',
+      latencyMs: Date.now() - start,
+    };
+  } catch (err) {
+    return {
+      configured: true,
+      status: 'down',
+      error: err instanceof Error ? err.message : 'Redis ping failed',
+    };
+  }
+}
