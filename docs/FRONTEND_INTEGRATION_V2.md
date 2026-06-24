@@ -743,7 +743,7 @@ Add to pipeline         → pipelineId
 - If your bucket name differs, the URL is:  
   `https://<ref>.supabase.co/storage/v1/object/public/<SUPABASE_STORAGE_BUCKET>/uploads/<uuid>-<filename>`
 - Supabase DB passwords with special characters (like `@`) must be URL-encoded in `DATABASE_URL`/`DIRECT_URL`.
-- Supabase “RLS disabled” warnings don’t affect Prisma server-side access (they matter only if you query Supabase DB from frontend using Supabase client + anon key).
+- Supabase “RLS disabled” warnings: enable RLS on all `public` tables (see migration `20260623120000_enable_supabase_rls`). Prisma/server access is unchanged; only direct Supabase Data API + anon key access is blocked.
 
 ---
 
