@@ -54,27 +54,27 @@ router.get(
   ctrl.getStatus,
 );
 router.patch(
-  '/preference',
+  '/preference/:connectionId',
   authenticate,
   authorize([PERMISSIONS.LINKEDIN_CONNECT]),
   validateRequest(updatePreferenceSchema),
   ctrl.updatePreference,
 );
 router.post(
-  '/refresh-organization',
+  '/refresh-organization/:connectionId',
   authenticate,
   authorize([PERMISSIONS.LINKEDIN_CONNECT]),
   ctrl.refreshOrganization,
 );
 router.patch(
-  '/organization',
+  '/organization/:connectionId',
   authenticate,
   authorize([PERMISSIONS.LINKEDIN_CONNECT]),
   validateRequest(setOrganizationSchema),
   ctrl.setOrganization,
 );
 router.delete(
-  '/disconnect',
+  '/disconnect/:connectionId',
   authenticate,
   authorize([PERMISSIONS.LINKEDIN_CONNECT]),
   ctrl.disconnect,

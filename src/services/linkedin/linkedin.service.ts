@@ -17,7 +17,6 @@ import {
 import {
   formatOrgDiscoveryFailure,
   throwLinkedInApiError,
-  throwLinkedInNetworkError,
 } from '../../common/linkedin/linkedinApiErrors';
 import { uploadFile } from '../../common/storage/fileUpload';
 import { auditService } from '../audit/audit.service';
@@ -382,8 +381,12 @@ export async function exchangeCodeForTokens(code: string, state: string) {
     if (!linkedInEmail && u.email) linkedInEmail = u.email;
   }
 
+  if (!linkedInPersonId) {
+    throw new AppError('Could not resolve LinkedIn identity', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
   const existing = await prisma.linkedInConnection.findUnique({
-    where: { userId },
+    where: { userId_linkedInPersonId: { userId, linkedInPersonId } },
     select: { linkedInOrgId: true, linkedInOrgName: true, postAsOrg: true },
   });
 
@@ -395,7 +398,7 @@ export async function exchangeCodeForTokens(code: string, state: string) {
   const expiry = tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined;
 
   await prisma.linkedInConnection.upsert({
-    where: { userId },
+    where: { userId_linkedInPersonId: { userId, linkedInPersonId } },
     create: {
       tenantId,
       userId,
@@ -410,7 +413,6 @@ export async function exchangeCodeForTokens(code: string, state: string) {
       scope: tokens.scope,
     },
     update: {
-      linkedInPersonId,
       linkedInName,
       linkedInEmail,
       linkedInOrgId,
@@ -439,57 +441,68 @@ export async function exchangeCodeForTokens(code: string, state: string) {
 export async function getConnectionStatus(userId: string) {
   const cacheKey = cacheKeys.linkedInStatus(userId);
   return cacheService.getOrSet(cacheKey, CACHE_STATIC_TTL, async () => {
-  const conn = await prisma.linkedInConnection.findUnique({
-    where: { userId },
-    select: {
-      linkedInName: true,
-      linkedInEmail: true,
-      linkedInOrgId: true,
-      linkedInOrgName: true,
-      postAsOrg: true,
-      connectedAt: true,
-      accessTokenExpiry: true,
-      scope: true,
-    },
-  });
-  if (!conn) return { connected: false as const };
-  const isExpired = conn.accessTokenExpiry ? conn.accessTokenExpiry < new Date() : false;
-  const granted = parseGrantedScopes(conn.scope);
-  const hasOrgPage = Boolean(conn.linkedInOrgId);
-  const canPostAsCompanyPage = hasOrgPage && granted.has('w_organization_social');
-  const orgDiscoveryHint = buildOrgDiscoveryHint({
-    scope: conn.scope,
-    linkedInOrgId: conn.linkedInOrgId,
-  });
-  return {
-    connected: true as const,
-    name: conn.linkedInName,
-    email: conn.linkedInEmail,
-    connectedAt: conn.connectedAt,
-    isExpired,
-    orgScopesEnabled: env.LINKEDIN_REQUEST_ORG_SCOPES,
-    grantedScopes: [...granted],
-    canPostAsCompanyPage,
-    hasOrgPage,
-    orgName: conn.linkedInOrgName ?? null,
-    orgId: conn.linkedInOrgId ?? null,
-    postAsOrg: conn.postAsOrg,
-    orgDiscoveryHint: orgDiscoveryHint || null,
-    willPostAs: resolveWillPostAs({
-      postAsOrg: conn.postAsOrg,
-      linkedInOrgId: conn.linkedInOrgId,
-      linkedInOrgName: conn.linkedInOrgName,
-      linkedInName: conn.linkedInName,
-    }),
-  };
+    const conns = await prisma.linkedInConnection.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        linkedInPersonId: true,
+        linkedInName: true,
+        linkedInEmail: true,
+        linkedInOrgId: true,
+        linkedInOrgName: true,
+        postAsOrg: true,
+        connectedAt: true,
+        accessTokenExpiry: true,
+        scope: true,
+      },
+    });
+    if (conns.length === 0) return { connected: false as const };
+
+    const connections = conns.map((conn) => {
+      const isExpired = conn.accessTokenExpiry ? conn.accessTokenExpiry < new Date() : false;
+      const granted = parseGrantedScopes(conn.scope);
+      const hasOrgPage = Boolean(conn.linkedInOrgId);
+      const canPostAsCompanyPage = hasOrgPage && granted.has('w_organization_social');
+      const orgDiscoveryHint = buildOrgDiscoveryHint({
+        scope: conn.scope,
+        linkedInOrgId: conn.linkedInOrgId,
+      });
+      return {
+        id: conn.id,
+        linkedInPersonId: conn.linkedInPersonId,
+        name: conn.linkedInName,
+        email: conn.linkedInEmail,
+        connectedAt: conn.connectedAt,
+        isExpired,
+        grantedScopes: [...granted],
+        canPostAsCompanyPage,
+        hasOrgPage,
+        orgName: conn.linkedInOrgName ?? null,
+        orgId: conn.linkedInOrgId ?? null,
+        postAsOrg: conn.postAsOrg,
+        orgDiscoveryHint: orgDiscoveryHint || null,
+        willPostAs: resolveWillPostAs({
+          postAsOrg: conn.postAsOrg,
+          linkedInOrgId: conn.linkedInOrgId,
+          linkedInOrgName: conn.linkedInOrgName,
+          linkedInName: conn.linkedInName,
+        }),
+      };
+    });
+
+    return {
+      connected: true as const,
+      orgScopesEnabled: env.LINKEDIN_REQUEST_ORG_SCOPES,
+      connections,
+    };
   });
 }
 
-export async function refreshOrganizationDiscovery(userId: string) {
-  const conn = await prisma.linkedInConnection.findUnique({ where: { userId } });
-  if (!conn) {
+export async function refreshOrganizationDiscovery(userId: string, connectionId: string) {
+  const conn = await prisma.linkedInConnection.findUnique({ where: { id: connectionId } });
+  if (!conn || conn.userId !== userId) {
     throw new AppError(
-      'LinkedIn is not connected.',
+      'LinkedIn connection not found.',
       StatusCodes.NOT_FOUND,
       ERROR_CODES.LINKEDIN_NOT_CONNECTED,
     );
@@ -504,7 +517,7 @@ export async function refreshOrganizationDiscovery(userId: string) {
     );
   }
   await prisma.linkedInConnection.update({
-    where: { userId },
+    where: { id: connectionId },
     data: {
       linkedInOrgId: discovered.linkedInOrgId,
       linkedInOrgName: discovered.linkedInOrgName,
@@ -520,13 +533,14 @@ export async function refreshOrganizationDiscovery(userId: string) {
 
 export async function setManualOrganization(
   userId: string,
+  connectionId: string,
   orgIdInput: string,
   orgName?: string,
 ) {
-  const conn = await prisma.linkedInConnection.findUnique({ where: { userId } });
-  if (!conn) {
+  const conn = await prisma.linkedInConnection.findUnique({ where: { id: connectionId } });
+  if (!conn || conn.userId !== userId) {
     throw new AppError(
-      'LinkedIn is not connected.',
+      'LinkedIn connection not found.',
       StatusCodes.NOT_FOUND,
       ERROR_CODES.LINKEDIN_NOT_CONNECTED,
     );
@@ -540,7 +554,7 @@ export async function setManualOrganization(
     );
   }
   await prisma.linkedInConnection.update({
-    where: { userId },
+    where: { id: connectionId },
     data: {
       linkedInOrgId,
       linkedInOrgName: orgName?.trim() || conn.linkedInOrgName,
@@ -556,11 +570,11 @@ export async function setManualOrganization(
   };
 }
 
-export async function updatePostPreference(userId: string, postAsOrg: boolean) {
-  const conn = await prisma.linkedInConnection.findUnique({ where: { userId } });
-  if (!conn) {
+export async function updatePostPreference(userId: string, connectionId: string, postAsOrg: boolean) {
+  const conn = await prisma.linkedInConnection.findUnique({ where: { id: connectionId } });
+  if (!conn || conn.userId !== userId) {
     throw new AppError(
-      'LinkedIn is not connected.',
+      'LinkedIn connection not found.',
       StatusCodes.NOT_FOUND,
       ERROR_CODES.LINKEDIN_NOT_CONNECTED,
     );
@@ -573,15 +587,15 @@ export async function updatePostPreference(userId: string, postAsOrg: boolean) {
     );
   }
   await prisma.linkedInConnection.update({
-    where: { userId },
+    where: { id: connectionId },
     data: { postAsOrg },
   });
   await cacheService.invalidateLinkedInStatus(userId);
   return { postAsOrg };
 }
 
-export async function disconnectLinkedIn(userId: string, tenantId: string) {
-  await prisma.linkedInConnection.deleteMany({ where: { userId } });
+export async function disconnectLinkedIn(userId: string, tenantId: string, connectionId: string) {
+  await prisma.linkedInConnection.deleteMany({ where: { id: connectionId, userId } });
   await cacheService.invalidateLinkedInStatus(userId);
   await auditService.createAuditLog({
     tenantId,
@@ -597,27 +611,21 @@ export async function autoPost(
   jobId: string,
   tenantId: string,
   userId: string,
-  options: { customText?: string; postAsOrg?: boolean } = {},
+  options: { customText?: string; connectionIds?: string[] } = {},
 ) {
-  const { customText, postAsOrg: postAsOrgOverride } = options;
-  const conn = await prisma.linkedInConnection.findUnique({ where: { userId } });
-  if (!conn) {
+  const { customText, connectionIds = [] } = options;
+
+  if (!connectionIds || connectionIds.length === 0) {
+    throw new AppError('No connections selected.', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  const conns = await prisma.linkedInConnection.findMany({
+    where: { id: { in: connectionIds }, userId },
+  });
+
+  if (conns.length === 0) {
     throw new AppError(
       'Your LinkedIn account is not connected. Go to Settings to connect it first.',
-      StatusCodes.PRECONDITION_FAILED,
-      ERROR_CODES.LINKEDIN_NOT_CONNECTED,
-    );
-  }
-  if (conn.accessTokenExpiry && conn.accessTokenExpiry < new Date()) {
-    throw new AppError(
-      'Your LinkedIn access token has expired. Please reconnect in Settings.',
-      StatusCodes.UNAUTHORIZED,
-      ERROR_CODES.LINKEDIN_TOKEN_EXPIRED,
-    );
-  }
-  if (!conn.linkedInPersonId) {
-    throw new AppError(
-      'LinkedIn profile ID missing. Please reconnect your LinkedIn account in Settings.',
       StatusCodes.PRECONDITION_FAILED,
       ERROR_CODES.LINKEDIN_NOT_CONNECTED,
     );
@@ -644,165 +652,175 @@ export async function autoPost(
     );
   }
 
-  const useOrg = postAsOrgOverride !== undefined ? postAsOrgOverride : conn.postAsOrg;
-  const granted = parseGrantedScopes(conn.scope);
-  if (useOrg && !conn.linkedInOrgId) {
-    throw new AppError(
-      'No company page linked. Refresh pages in Settings, link your page ID manually, or post as personal profile.',
-      StatusCodes.BAD_REQUEST,
-      ERROR_CODES.LINKEDIN_ORG_NOT_FOUND,
-    );
-  }
-  if (useOrg && conn.linkedInOrgId && !granted.has('w_organization_social')) {
-    throw new AppError(
-      'Your LinkedIn token cannot post as a company page. Set LINKEDIN_REQUEST_ORG_SCOPES=true, get w_organization_social approved on your LinkedIn app, restart the backend, and reconnect.',
-      StatusCodes.BAD_REQUEST,
-      ERROR_CODES.LINKEDIN_ORG_NOT_FOUND,
-    );
-  }
-
-  const accessToken = decrypt(conn.accessToken);
-  const authorUrn =
-    useOrg && conn.linkedInOrgId
-      ? `urn:li:organization:${conn.linkedInOrgId}`
-      : `urn:li:person:${conn.linkedInPersonId}`;
-
-  const postedAsLabel =
-    useOrg && conn.linkedInOrgName ? conn.linkedInOrgName : (conn.linkedInName ?? 'Personal');
-
+  const results = [];
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
-  const todayCount = await prisma.linkedInPost.count({
-    where: {
-      postedByUserId: userId,
-      tier: 3,
-      status: 'published',
-      postedAt: { gte: todayStart },
-    },
-  });
-  if (todayCount >= 140) {
-    throw new AppError(
-      'LinkedIn daily post limit reached (150/day). Try again tomorrow.',
-      StatusCodes.TOO_MANY_REQUESTS,
-      ERROR_CODES.LINKEDIN_RATE_LIMITED,
-    );
-  }
 
   const shareImageUrl = job.linkedInImageUrl ?? null;
-  let ugcPayload: Record<string, unknown>;
+  let downloadedImageBuffer: Buffer | undefined;
+  let downloadedImageMime: string | undefined;
 
   if (shareImageUrl) {
     const { buffer, mimeType } = await fetchImageBytes(shareImageUrl);
-    const assetUrn = await uploadImageToLinkedIn(accessToken, authorUrn, buffer, mimeType);
-    ugcPayload = {
-      author: authorUrn,
-      lifecycleState: 'PUBLISHED',
-      specificContent: {
-        'com.linkedin.ugc.ShareContent': {
-          shareCommentary: { text: postText },
-          shareMediaCategory: 'IMAGE',
-          media: [{ status: 'READY', media: assetUrn }],
-        },
-      },
-      visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
-    };
-  } else {
-    ugcPayload = {
-      author: authorUrn,
-      lifecycleState: 'PUBLISHED',
-      specificContent: {
-        'com.linkedin.ugc.ShareContent': {
-          shareCommentary: { text: postText },
-          shareMediaCategory: 'ARTICLE',
-          media: [
-            {
-              status: 'READY',
-              originalUrl: portalUrl,
-              title: { text: `${job.title} at ${companyName}` },
-              description: { text: (job.description ?? '').slice(0, 200) },
-            },
-          ],
-        },
-      },
-      visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
-    };
+    downloadedImageBuffer = buffer;
+    downloadedImageMime = mimeType;
   }
 
-  const record = await prisma.linkedInPost.create({
-    data: {
-      tenantId,
-      jobId,
-      postedByUserId: userId,
-      postText,
-      imageUrl: shareImageUrl,
-      tier: 3,
-      status: 'generated',
-      postedAsOrg: useOrg && Boolean(conn.linkedInOrgId),
-      postedOrgName: useOrg ? conn.linkedInOrgName : null,
-      postedPersonName: conn.linkedInName,
-    },
-  });
+  for (const conn of conns) {
+    try {
+      if (conn.accessTokenExpiry && conn.accessTokenExpiry < new Date()) {
+        throw new AppError('Token expired.', StatusCodes.UNAUTHORIZED, ERROR_CODES.LINKEDIN_TOKEN_EXPIRED);
+      }
+      if (!conn.linkedInPersonId) {
+        throw new AppError('Profile ID missing.', StatusCodes.PRECONDITION_FAILED, ERROR_CODES.LINKEDIN_NOT_CONNECTED);
+      }
 
-  try {
-    const res = await fetch(`${LI_API}/ugcPosts`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Restli-Protocol-Version': '2.0.0',
-      },
-      body: JSON.stringify(ugcPayload),
-    });
+      const useOrg = conn.postAsOrg;
+      const granted = parseGrantedScopes(conn.scope);
+      if (useOrg && !conn.linkedInOrgId) {
+        throw new AppError('No company page linked.', StatusCodes.BAD_REQUEST, ERROR_CODES.LINKEDIN_ORG_NOT_FOUND);
+      }
+      if (useOrg && conn.linkedInOrgId && !granted.has('w_organization_social')) {
+        throw new AppError('No permission to post as company page.', StatusCodes.BAD_REQUEST, ERROR_CODES.LINKEDIN_ORG_NOT_FOUND);
+      }
 
-    if (!res.ok) {
-      const errBody = await res.text();
+      const todayCount = await prisma.linkedInPost.count({
+        where: {
+          postedByUserId: userId,
+          tier: 3,
+          status: 'published',
+          postedAt: { gte: todayStart },
+        },
+      });
+      if (todayCount >= 140) {
+        throw new AppError('Daily post limit reached.', StatusCodes.TOO_MANY_REQUESTS, ERROR_CODES.LINKEDIN_RATE_LIMITED);
+      }
+
+      const accessToken = decrypt(conn.accessToken);
+      const authorUrn = useOrg && conn.linkedInOrgId ? `urn:li:organization:${conn.linkedInOrgId}` : `urn:li:person:${conn.linkedInPersonId}`;
+      const postedAsLabel = useOrg && conn.linkedInOrgName ? conn.linkedInOrgName : (conn.linkedInName ?? 'Personal');
+
+      let ugcPayload: Record<string, unknown>;
+
+      if (downloadedImageBuffer && downloadedImageMime) {
+        const assetUrn = await uploadImageToLinkedIn(accessToken, authorUrn, downloadedImageBuffer, downloadedImageMime);
+        ugcPayload = {
+          author: authorUrn,
+          lifecycleState: 'PUBLISHED',
+          specificContent: {
+            'com.linkedin.ugc.ShareContent': {
+              shareCommentary: { text: postText },
+              shareMediaCategory: 'IMAGE',
+              media: [{ status: 'READY', media: assetUrn }],
+            },
+          },
+          visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+        };
+      } else {
+        ugcPayload = {
+          author: authorUrn,
+          lifecycleState: 'PUBLISHED',
+          specificContent: {
+            'com.linkedin.ugc.ShareContent': {
+              shareCommentary: { text: postText },
+              shareMediaCategory: 'ARTICLE',
+              media: [
+                {
+                  status: 'READY',
+                  originalUrl: portalUrl,
+                  title: { text: `${job.title} at ${companyName}` },
+                  description: { text: (job.description ?? '').slice(0, 200) },
+                },
+              ],
+            },
+          },
+          visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+        };
+      }
+
+      const record = await prisma.linkedInPost.create({
+        data: {
+          tenantId,
+          jobId,
+          postedByUserId: userId,
+          postText,
+          imageUrl: shareImageUrl,
+          tier: 3,
+          status: 'generated',
+          postedAsOrg: useOrg && Boolean(conn.linkedInOrgId),
+          postedOrgName: useOrg ? conn.linkedInOrgName : null,
+          postedPersonName: conn.linkedInName,
+        },
+      });
+
+      const res = await fetch(`${LI_API}/ugcPosts`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+        body: JSON.stringify(ugcPayload),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        await prisma.linkedInPost.update({
+          where: { id: record.id },
+          data: { status: 'failed', errorMessage: errBody },
+        });
+        throwLinkedInApiError(errBody, 'post', res.status);
+      }
+
+      const liPostId = res.headers.get('x-restli-id') ?? res.headers.get('x-linkedin-id') ?? '';
+      const postUrl = liPostId ? `https://www.linkedin.com/feed/update/${encodeURIComponent(liPostId)}/` : undefined;
+
       await prisma.linkedInPost.update({
         where: { id: record.id },
-        data: { status: 'failed', errorMessage: errBody },
+        data: { linkedInPostId: liPostId, postUrl, status: 'published', postedAt: new Date() },
       });
-      throwLinkedInApiError(errBody, 'post', res.status);
-    }
 
-    const liPostId = res.headers.get('x-restli-id') ?? res.headers.get('x-linkedin-id') ?? '';
-    const postUrl = liPostId ? `https://www.linkedin.com/feed/update/${encodeURIComponent(liPostId)}/` : undefined;
+      await auditService.createAuditLog({
+        tenantId,
+        actorId: userId,
+        action: 'linkedin_post',
+        entityType: 'job',
+        entityId: jobId,
+        metadata: {
+          tier: 3,
+          liPostId,
+          postUrl,
+          hasImage: Boolean(shareImageUrl),
+          postedAs: postedAsLabel,
+          postedAsOrg: useOrg && Boolean(conn.linkedInOrgId),
+        },
+      });
 
-    await prisma.linkedInPost.update({
-      where: { id: record.id },
-      data: { linkedInPostId: liPostId, postUrl, status: 'published', postedAt: new Date() },
-    });
-
-    await auditService.createAuditLog({
-      tenantId,
-      actorId: userId,
-      action: 'linkedin_post',
-      entityType: 'job',
-      entityId: jobId,
-      metadata: {
-        tier: 3,
-        liPostId,
-        postUrl,
-        hasImage: Boolean(shareImageUrl),
+      results.push({
+        postId: liPostId,
+        postUrl: postUrl ?? null,
+        status: 'published' as const,
         postedAs: postedAsLabel,
         postedAsOrg: useOrg && Boolean(conn.linkedInOrgId),
-      },
-    });
-
-    return {
-      postId: liPostId,
-      postUrl: postUrl ?? null,
-      status: 'published' as const,
-      postedAs: postedAsLabel,
-      postedAsOrg: useOrg && Boolean(conn.linkedInOrgId),
-      postedAt: new Date(),
-    };
-  } catch (error) {
-    if (error instanceof AppError) throw error;
-    await prisma.linkedInPost.update({
-      where: { id: record.id },
-      data: { status: 'failed', errorMessage: String(error) },
-    });
-    throwLinkedInNetworkError('post');
+        postedAt: new Date(),
+        connectionId: conn.id
+      });
+    } catch (error) {
+      if (error instanceof AppError) {
+        results.push({ error: error.message, connectionId: conn.id });
+      } else {
+        results.push({ error: String(error), connectionId: conn.id });
+      }
+    }
   }
+
+  // Find if all failed
+  const failedResults = results.filter(r => (r as any).error);
+  if (failedResults.length === conns.length) {
+    throw new AppError(`Failed to post to any accounts: ${(failedResults[0] as any).error}`, StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  return results.filter(r => !(r as any).error);
 }
 
 export async function getJobPostHistory(jobId: string, tenantId: string) {

@@ -77,28 +77,32 @@ export const getStatus = catchAsync(async (req: Request, res: Response) => {
 
 export const refreshOrganization = catchAsync(async (req: Request, res: Response) => {
   const userId = String(req.user?.userId);
-  const result = await li.refreshOrganizationDiscovery(userId);
+  const connectionId = requireStringValue(req.params.connectionId, 'connectionId');
+  const result = await li.refreshOrganizationDiscovery(userId, connectionId);
   sendSuccess(res, StatusCodes.OK, 'Company pages refreshed', result);
 });
 
 export const setOrganization = catchAsync(async (req: Request, res: Response) => {
   const { orgId, orgName } = getRequestBody<{ orgId: string; orgName?: string }>(req);
   const userId = String(req.user?.userId);
-  const result = await li.setManualOrganization(userId, orgId, orgName);
+  const connectionId = requireStringValue(req.params.connectionId, 'connectionId');
+  const result = await li.setManualOrganization(userId, connectionId, orgId, orgName);
   sendSuccess(res, StatusCodes.OK, 'Company page linked', result);
 });
 
 export const updatePreference = catchAsync(async (req: Request, res: Response) => {
   const { postAsOrg } = getRequestBody<{ postAsOrg: boolean }>(req);
   const userId = String(req.user?.userId);
-  const result = await li.updatePostPreference(userId, postAsOrg);
+  const connectionId = requireStringValue(req.params.connectionId, 'connectionId');
+  const result = await li.updatePostPreference(userId, connectionId, postAsOrg);
   sendSuccess(res, StatusCodes.OK, 'LinkedIn posting preference saved', result);
 });
 
 export const disconnect = catchAsync(async (req: Request, res: Response) => {
   const userId = String(req.user?.userId);
   const tenantId = String(req.user?.tenantId);
-  await li.disconnectLinkedIn(userId, tenantId);
+  const connectionId = requireStringValue(req.params.connectionId, 'connectionId');
+  await li.disconnectLinkedIn(userId, tenantId, connectionId);
   sendSuccess(res, StatusCodes.OK, 'LinkedIn disconnected', null);
 });
 
@@ -121,14 +125,14 @@ export const clearJobImage = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const autoPost = catchAsync(async (req: Request, res: Response) => {
-  const { jobId, customText, postAsOrg } = getRequestBody<{
+  const { jobId, customText, connectionIds } = getRequestBody<{
     jobId: string;
     customText?: string;
-    postAsOrg?: boolean;
+    connectionIds?: string[];
   }>(req);
   const tenantId = String(req.user?.tenantId);
   const userId = String(req.user?.userId);
-  const result = await li.autoPost(jobId, tenantId, userId, { customText, postAsOrg });
+  const result = await li.autoPost(jobId, tenantId, userId, { customText, connectionIds });
   sendSuccess(res, StatusCodes.CREATED, 'Posted to LinkedIn', result);
 });
 

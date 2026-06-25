@@ -37,7 +37,7 @@ export const autoPostSchema = z.object({
   body: z.object({
     jobId: z.uuid(),
     customText: z.string().max(3000).optional(),
-    postAsOrg: z.boolean().optional(),
+    connectionIds: z.array(z.string()).optional(),
   }),
 });
 

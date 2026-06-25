@@ -14,6 +14,7 @@ export function getRedisClient(): Redis | null {
       maxRetriesPerRequest: 1,
       enableReadyCheck: true,
       lazyConnect: true,
+      connectTimeout: 500, // Fail fast if Redis is down
     });
 
     client.on('error', (err) => {

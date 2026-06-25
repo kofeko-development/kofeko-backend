@@ -176,7 +176,7 @@ model User {
   sessions     Session[]
   inviteTokens InviteToken[]
   passwordResetTokens PasswordResetToken[]
-  linkedInConnection  LinkedInConnection?
+  linkedInConnections LinkedInConnection[]
   linkedInPostsMade   LinkedInPost[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -305,7 +305,7 @@ model Job {
 model LinkedInConnection {
   id                String    @id @default(uuid())
   tenantId          String
-  userId            String    @unique
+  userId            String
   tenant            Tenant    @relation(fields: [tenantId], references: [id])
   user              User      @relation(fields: [userId], references: [id])
   linkedInPersonId  String?
@@ -320,6 +320,8 @@ model LinkedInConnection {
   scope             String?
   connectedAt       DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+
+  @@unique([userId, linkedInPersonId])
 }
 
 model LinkedInPost {
