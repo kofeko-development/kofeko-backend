@@ -33,6 +33,17 @@ export const candidateRepository = {
         orderBy: { createdAt: 'desc' },
         skip: (input.page - 1) * input.limit,
         take: input.limit,
+        include: {
+          applications: {
+            include: {
+              job: {
+                select: {
+                  title: true,
+                },
+              },
+            },
+          },
+        },
       }),
       prisma.candidate.count({ where }),
     ]);

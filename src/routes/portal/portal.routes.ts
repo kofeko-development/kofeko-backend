@@ -26,6 +26,7 @@ import {
   portalRefresh,
   portalRegisterCandidate,
   portalUpdateProfile,
+  portalCheckPhone,
   portalParseResume,
   portalUploadResume,
   portalListMessages,
@@ -130,6 +131,15 @@ portalRouter.get('/auth/me', authenticateCandidate, portalMe);
  *     summary: Update candidate profile (portal)
  */
 portalRouter.patch('/profile', authenticateCandidate, validateRequest(updatePortalProfileSchema), portalUpdateProfile);
+
+/**
+ * @openapi
+ * /api/v1/portal/profile/check-phone:
+ *   get:
+ *     tags: [Portal]
+ *     summary: Check if a phone number is available for use
+ */
+portalRouter.get('/profile/check-phone', authenticateCandidate, portalCheckPhone);
 
 /**
  * @openapi

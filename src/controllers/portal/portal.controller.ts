@@ -260,6 +260,35 @@ export const portalUpdateProfile = catchAsync(async (req: Request, res: Response
   sendSuccess(res, StatusCodes.OK, 'Profile updated', result);
 });
 
+export const portalCheckPhone = catchAsync(async (req: Request, res: Response) => {
+  const candidateId = String(req.candidate?.candidateId);
+  const phone = (req.query.phone as string | undefined)?.trim();
+
+  if (!phone) {
+    throw new AppError('Phone number is required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  const currentCandidate = await prisma.candidate.findUnique({
+    where: { id: candidateId },
+    select: { email: true },
+  });
+
+  if (!currentCandidate) {
+    throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  const existing = await prisma.candidate.findFirst({
+    where: {
+      phoneNumber: phone,
+      email: { not: currentCandidate.email },
+    },
+  });
+
+  sendSuccess(res, StatusCodes.OK, 'Phone availability checked', {
+    available: !existing,
+  });
+});
+
 export const portalParseResume = catchAsync(async (req: Request, res: Response) => {
   const candidateId = String(req.candidate?.candidateId);
   const tenantId = String(req.candidate?.tenantId);

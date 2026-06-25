@@ -25,8 +25,30 @@ export const portalProfileService = {
       hobbies?: string[];
     },
   ) {
+    const currentCandidate = await prisma.candidate.findUnique({
+      where: { id: candidateId },
+      select: { email: true }
+    });
+
+    if (!currentCandidate) {
+      throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    if (payload.phone) {
+      const existing = await prisma.candidate.findFirst({
+        where: {
+          phoneNumber: payload.phone,
+          email: { not: currentCandidate.email },
+        },
+      });
+
+      if (existing) {
+        throw new AppError('This phone number is already registered to another candidate.', StatusCodes.CONFLICT, ERROR_CODES.CONFLICT);
+      }
+    }
+
     const updated = await prisma.candidate.updateMany({
-      where: { id: candidateId, tenantId },
+      where: { email: currentCandidate.email },
       data: {
         firstName: payload.firstName,
         lastName: payload.lastName,
@@ -49,6 +71,7 @@ export const portalProfileService = {
       throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
 
+    // Invalidate the session for the current candidate login
     await cacheService.invalidateCandidateSession(tenantId, candidateId);
 
     return prisma.candidate.findFirstOrThrow({
