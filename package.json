@@ -22,7 +22,8 @@
     "mailhog": "docker run --rm --name kofeko-mailhog -p 1025:1025 -p 8025:8025 mailhog/mailhog",
     "mailhog:up": "docker start kofeko-mailhog || docker run -d --name kofeko-mailhog -p 1025:1025 -p 8025:8025 mailhog/mailhog",
     "mailhog:down": "docker stop kofeko-mailhog && docker rm kofeko-mailhog",
-    "mailhog:open": "start http://127.0.0.1:8025"
+    "mailhog:open": "start http://127.0.0.1:8025",
+    "postinstall": "prisma generate"
   },
   "keywords": [],
   "author": "",
