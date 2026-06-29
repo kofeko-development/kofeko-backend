@@ -32,6 +32,7 @@ import { CACHE_SESSION_TTL } from '../../common/cache/cacheTtl';
 import { getFirebaseAdmin } from '../../common/firebase/firebaseAdmin';
 import { getSupabaseAdmin } from '../../common/supabase/supabaseAdmin';
 import { authRepository } from '../../repositories/auth/auth.repository';
+import { sendCompanyApprovalEmail } from '../email/approval-email.service';
 import { userRepository } from '../../repositories/user/user.repository';
 import {
   AcceptInviteInput,
@@ -340,8 +341,72 @@ export const authService = {
 
     const adminPasswordHash = await hashPassword(payload.password);
     const { password: _password, emailVerificationToken: _token, ...rest } = payload;
+
+    const contactName = payload.contactName || payload.companyName || 'Admin';
+    const contactEmail = payload.contactEmail || adminEmail;
+    const officialCompanyAddress = payload.officialCompanyAddress || payload.companyAddress.fullAddress || '';
+
+    const autoApproveSetting = await prisma.systemSetting.findUnique({
+      where: { key: 'auto_approve_company' },
+    });
+    const isAutoApproveEnabled = autoApproveSetting?.value === 'true';
+
+    if (isAutoApproveEnabled) {
+      let tenantSlug = payload.companyName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      if (!tenantSlug) {
+        tenantSlug = 'tenant';
+      }
+      const slugTaken = await prisma.tenant.findUnique({
+        where: { slug: tenantSlug },
+      });
+      if (slugTaken) {
+        tenantSlug = `${tenantSlug}-${Math.random().toString(36).substring(2, 6)}`;
+      }
+
+      const firstSuperAdmin = await prisma.superAdmin.findFirst();
+      const superAdminId = firstSuperAdmin?.id || 'system-auto-approve';
+
+      const request = await authRepository.createCompanyRegistrationRequest({
+        ...rest,
+        contactName,
+        contactEmail,
+        officialCompanyAddress,
+        adminEmail,
+        adminPasswordHash,
+      });
+
+      const permissionKeys = Object.values(PERMISSIONS) as string[];
+      await authRepository.approveCompanyRegistrationRequest(request.id, permissionKeys, {
+        tenantSlug,
+        adminEmail,
+        adminPasswordHash,
+        reviewedBySuperAdminId: superAdminId,
+        reviewNotes: 'System auto-approved company registration.',
+      });
+
+      void sendCompanyApprovalEmail({
+        companyName: payload.companyName,
+        toEmail: adminEmail,
+        tenantSlug,
+        username: adminEmail,
+      }).catch((err) => console.error('Failed to send auto-approval email:', err));
+
+      return {
+        requestId: request.id,
+        status: 'approved',
+        tenantSlug,
+        message: 'Company registration auto-approved successfully!',
+      };
+    }
+
     const request = await authRepository.createCompanyRegistrationRequest({
       ...rest,
+      contactName,
+      contactEmail,
+      officialCompanyAddress,
       adminEmail,
       adminPasswordHash,
     });

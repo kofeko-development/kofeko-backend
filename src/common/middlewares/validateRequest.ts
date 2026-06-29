@@ -8,7 +8,24 @@ import { zodErrorDetails } from '../utils/zodErrorDetails';
 export const validateRequest = (schema: ZodTypeAny): RequestHandler => {
   return (req: Request, _res: Response, next: NextFunction): void => {
     try {
-      schema.parse({ body: req.body, params: req.params, query: req.query });
+      const parsed = schema.parse({ body: req.body, params: req.params, query: req.query }) as any;
+
+      if (parsed.body) {
+        req.body = parsed.body;
+      }
+      if (parsed.params) {
+        for (const key in req.params) {
+          delete req.params[key];
+        }
+        Object.assign(req.params, parsed.params);
+      }
+      if (parsed.query) {
+        for (const key in req.query) {
+          delete (req.query as any)[key];
+        }
+        Object.assign(req.query, parsed.query);
+      }
+
       next();
     } catch (error) {
       if (error instanceof ZodError) {

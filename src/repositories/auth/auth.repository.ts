@@ -46,17 +46,17 @@ type CompanyRegistrationRequestInput = {
     fullAddress: string;
   };
   industry: string;
-  companySize: string;
-  companyType: 'startup' | 'enterprise' | 'agency' | 'non_profit';
-  foundedYear: number;
-  companyWebsite: string;
-  officialCompanyAddress: string;
+  companySize?: string;
+  companyType?: 'startup' | 'enterprise' | 'agency' | 'non_profit';
+  foundedYear?: number;
+  companyWebsite?: string;
+  officialCompanyAddress?: string;
   phoneNumber?: string;
   companyLogo?: string;
-  shortDescription: string;
+  shortDescription?: string;
   linkedinUrl?: string;
   twitterUrl?: string;
-  termsAccepted: true;
+  termsAccepted?: boolean;
   contactName?: string;
   contactEmail?: string;
   adminEmail: string;
@@ -266,17 +266,17 @@ export const authRepository = {
         companyName: input.companyName,
         companyAddress: input.companyAddress,
         industry: input.industry,
-        companySize: input.companySize,
-        companyType: input.companyType,
-        foundedYear: input.foundedYear,
-        companyWebsite: input.companyWebsite,
-        officialCompanyAddress: input.officialCompanyAddress,
+        companySize: input.companySize ?? '1-10',
+        companyType: input.companyType ?? 'startup',
+        foundedYear: input.foundedYear ?? new Date().getFullYear(),
+        companyWebsite: input.companyWebsite ?? 'https://example.com',
+        officialCompanyAddress: input.officialCompanyAddress ?? '',
         phoneNumber: input.phoneNumber,
         companyLogo: input.companyLogo?.trim() || '',
-        shortDescription: input.shortDescription,
+        shortDescription: input.shortDescription ?? 'Company profile details will be updated soon.',
         linkedinUrl: input.linkedinUrl,
         twitterUrl: input.twitterUrl,
-        termsAccepted: input.termsAccepted,
+        termsAccepted: input.termsAccepted ?? true,
         contactName: resolveRegistrationContactName(input.contactName, input.adminEmail),
         contactEmail: input.contactEmail?.trim() ?? '',
         adminEmail: input.adminEmail,

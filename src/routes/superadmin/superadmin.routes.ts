@@ -15,6 +15,10 @@ import {
   superAdminRejectCompanyRequest,
   superAdminSuspendTenant,
 } from '../../controllers/superadmin/superadmin.controller';
+import {
+  superAdminGetAutoApproveSetting,
+  superAdminSetAutoApproveSetting,
+} from '../../controllers/superadmin/settings.controller';
 import { validateRequest } from '../../common/middlewares/validateRequest';
 import {
   superAdminApproveCompanyRequestSchema,
@@ -192,5 +196,8 @@ superAdminRouter.post(
  *     summary: Platform analytics summary
  */
 superAdminRouter.get('/analytics', authenticateSuperAdmin, superAdminPlatformAnalytics);
+
+superAdminRouter.get('/settings/auto-approve', authenticateSuperAdmin, superAdminGetAutoApproveSetting);
+superAdminRouter.post('/settings/auto-approve', authenticateSuperAdmin, superAdminSetAutoApproveSetting);
 
 export default superAdminRouter;

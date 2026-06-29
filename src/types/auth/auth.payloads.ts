@@ -17,17 +17,17 @@ export type RegisterCompanyRequestInput = {
     fullAddress: string;
   };
   industry: string;
-  companySize: string;
-  companyType: 'startup' | 'enterprise' | 'agency' | 'non_profit';
-  foundedYear: number;
-  companyWebsite: string;
-  officialCompanyAddress: string;
+  companySize?: string;
+  companyType?: 'startup' | 'enterprise' | 'agency' | 'non_profit';
+  foundedYear?: number;
+  companyWebsite?: string;
+  officialCompanyAddress?: string;
   phoneNumber?: string;
   companyLogo?: string;
-  shortDescription: string;
+  shortDescription?: string;
   linkedinUrl?: string;
   twitterUrl?: string;
-  termsAccepted: true;
+  termsAccepted?: boolean;
   contactName?: string;
   contactEmail?: string;
   /** Company admin login email (used after approval with the chosen password). */

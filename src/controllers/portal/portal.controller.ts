@@ -136,6 +136,8 @@ export const portalApplyToJob = catchAsync(async (req: Request, res: Response) =
     currentCompany: sourceCandidate.currentCompany,
   };
 
+  const { skills: _skills, ...updateCandidateData } = candidateData;
+
   const targetCandidate = await prisma.candidate.upsert({
     where: {
       tenantId_email: {
@@ -143,7 +145,7 @@ export const portalApplyToJob = catchAsync(async (req: Request, res: Response) =
         email: sourceCandidate.email,
       },
     },
-    update: candidateData,
+    update: updateCandidateData,
     create: {
       ...candidateData,
       tenantId: targetTenant.id,

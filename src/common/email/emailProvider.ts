@@ -21,6 +21,9 @@ function createTransport() {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 }
 
@@ -39,6 +42,7 @@ async function sendViaResend(options: { to: string; subject: string; html: strin
   });
 
   if (error) {
+    console.error('[Resend Error Details]:', error);
     const base = typeof error.message === 'string' ? error.message : 'Resend rejected the email';
     const hint =
       base.includes('domain is not verified') || base.includes('invalid_from')
@@ -58,6 +62,7 @@ async function sendViaSmtp(options: { to: string; subject: string; html: string 
       html: options.html,
     });
   } catch (error: unknown) {
+    console.error('[SMTP Error Details]:', error);
     const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes('ECONNREFUSED')) {
       const host = process.env.SMTP_HOST ?? '';

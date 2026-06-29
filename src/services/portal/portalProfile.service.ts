@@ -47,6 +47,19 @@ export const portalProfileService = {
       }
     }
 
+    // Find all tenant IDs where this candidate has applied (has a Pipeline record)
+    const appliedPipelines = await prisma.pipeline.findMany({
+      where: {
+        candidate: {
+          email: currentCandidate.email,
+        },
+      },
+      select: {
+        tenantId: true,
+      },
+    });
+    const appliedTenantIds = appliedPipelines.map((p) => p.tenantId);
+
     const updated = await prisma.candidate.updateMany({
       where: { email: currentCandidate.email },
       data: {
@@ -57,7 +70,6 @@ export const portalProfileService = {
         portfolioUrl: payload.portfolioUrl,
         expectedSalary: payload.expectedSalary,
         noticePeriod: payload.noticePeriod,
-        skills: payload.skills,
         location: payload.location,
         summary: payload.summary,
         education: payload.education,
@@ -69,6 +81,20 @@ export const portalProfileService = {
 
     if (updated.count === 0) {
       throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    if (payload.skills) {
+      await prisma.candidate.updateMany({
+        where: {
+          email: currentCandidate.email,
+          tenantId: {
+            notIn: appliedTenantIds,
+          },
+        },
+        data: {
+          skills: payload.skills,
+        },
+      });
     }
 
     // Invalidate the session for the current candidate login
