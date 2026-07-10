@@ -72,7 +72,7 @@ async function bootstrapSuperAdminIfEmpty(): Promise<void> {
     return;
   }
 
-  const email = process.env.SEED_SUPERADMIN_EMAIL ?? 'superadmin@demo.com';
+  const email = process.env.SEED_SUPERADMIN_EMAIL ?? 'devops@kofeko.com';
   const passwordHash = await hashPassword(bootstrapConfig.adminPassword);
 
   await prisma.superAdmin.upsert({
@@ -82,7 +82,7 @@ async function bootstrapSuperAdminIfEmpty(): Promise<void> {
     },
     create: {
       email,
-      firstName: 'Super',
+      firstName: 'DevOps',
       lastName: 'Admin',
       passwordHash,
     },
