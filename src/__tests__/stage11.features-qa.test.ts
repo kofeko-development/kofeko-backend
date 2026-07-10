@@ -253,10 +253,11 @@ describe('Stage 11: QA Test Suite for new features', () => {
       candidateToken = loginRes.body.data.accessToken;
 
       // 4. Update Candidate skills initially
-      await request(app)
+      const patchRes0 = await request(app)
         .patch('/api/v1/portal/profile')
         .set('Authorization', `Bearer ${candidateToken}`)
         .send({ skills: ['Jest', 'TypeScript'] });
+      expect(patchRes0.status).toBe(200);
     });
 
     it('should freeze candidate key skills on job application', async () => {
