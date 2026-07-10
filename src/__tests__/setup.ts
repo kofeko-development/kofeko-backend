@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import { prisma } from '../config/prisma';
 
 beforeAll(async () => {

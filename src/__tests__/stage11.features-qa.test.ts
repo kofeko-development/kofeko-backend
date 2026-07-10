@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import crypto from 'node:crypto';
 import request from 'supertest';
 import app from '../app';
