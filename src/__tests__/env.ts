@@ -7,6 +7,10 @@ process.env.NODE_ENV = 'test';
 // before the rest of the test bootstrap runs.
 dotenv.config();
 
+if (process.env.DIRECT_URL) {
+  process.env.DATABASE_URL_TEST = process.env.DIRECT_URL;
+}
+
 // Guard against accidentally running destructive integration tests against a dev/prod database.
 if (!process.env.DATABASE_URL_TEST) {
   if (process.env.ALLOW_DATABASE_URL_FOR_TESTS === 'true') {
