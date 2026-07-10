@@ -22,9 +22,11 @@ async function bootstrapTenantAdminIfEmpty(): Promise<void> {
     return;
   }
 
-  const tenantCount = await prisma.tenant.count();
+  const existingTenant = await prisma.tenant.findUnique({
+    where: { slug: bootstrapConfig.tenantSlug },
+  });
 
-  if (tenantCount > 0) {
+  if (existingTenant) {
     return;
   }
 

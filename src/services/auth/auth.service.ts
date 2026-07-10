@@ -505,6 +505,17 @@ export const authService = {
         );
       }
 
+      const superAdminExists = await prisma.superAdmin.findUnique({
+        where: { email }
+      });
+      if (superAdminExists) {
+        throw new AppError(
+          'This email is registered as a super admin account. Please use the super admin login portal instead.',
+          StatusCodes.FORBIDDEN,
+          ERROR_CODES.WRONG_PORTAL
+        );
+      }
+
       throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
@@ -661,6 +672,32 @@ export const authService = {
     const user = await authRepository.findUserByTenantSlugAndEmail(candidateTenantSlug, payload.email);
 
     if (!user) {
+      const email = payload.email.trim().toLowerCase();
+      const superAdminExists = await prisma.superAdmin.findUnique({
+        where: { email }
+      });
+      if (superAdminExists) {
+        throw new AppError(
+          'This email is registered as a super admin account. Please use the super admin login portal instead.',
+          StatusCodes.FORBIDDEN,
+          ERROR_CODES.WRONG_PORTAL
+        );
+      }
+
+      const staffUser = await prisma.user.findFirst({
+        where: {
+          email,
+          tenant: { slug: { not: candidateTenantSlug } }
+        }
+      });
+      if (staffUser) {
+        throw new AppError(
+          'This email is registered as a company account. Please use the company login instead.',
+          StatusCodes.FORBIDDEN,
+          ERROR_CODES.WRONG_PORTAL
+        );
+      }
+
       throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
     if (user.status !== UserStatus.active) {
