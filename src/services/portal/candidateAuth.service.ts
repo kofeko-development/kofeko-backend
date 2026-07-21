@@ -173,10 +173,10 @@ export const candidateAuthService = {
     try {
       decoded = verifyCandidateRefreshToken(refreshToken);
     } catch {
-      throw new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError('Session expired, please log in again', StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED);
     }
     if (decoded.type !== 'candidate') {
-      throw new AppError('Invalid refresh token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError('Session expired, please log in again', StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED);
     }
 
     const tenant = await prisma.tenant.findUnique({ where: { id: decoded.tenantId }, select: { status: true } });

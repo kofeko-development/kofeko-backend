@@ -137,14 +137,28 @@ model Tenant {
 }
 
 model SuperAdmin {
-  id           String              @id @default(uuid())
-  email        String              @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  sessions     SuperAdminSession[]
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  id                      String                         @id @default(uuid())
+  email                   String                         @unique
+  passwordHash            String
+  firstName               String
+  lastName                String
+  twoFactorEnabled        Boolean                        @default(false)
+  twoFactorSecret         String?
+  twoFactorBackupCodes    String[]                       @default([])
+  sessions                SuperAdminSession[]
+  passwordResetTokens     SuperAdminPasswordResetToken[]
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
+}
+
+model SuperAdminPasswordResetToken {
+  id           String     @id @default(uuid())
+  superAdminId String
+  superAdmin   SuperAdmin @relation(fields: [superAdminId], references: [id], onDelete: Cascade)
+  token        String     @unique
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime   @default(now())
 }
 
 model SuperAdminSession {

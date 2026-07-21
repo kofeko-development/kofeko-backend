@@ -5,11 +5,13 @@ import { ERROR_CODES } from '../errors/errorCodes';
 import { verifyAccessToken } from '../auth/jwt';
 import { prisma } from '../../config/prisma';
 
+const SESSION_EXPIRED_MESSAGE = 'Session expired, please log in again';
+
 export const authenticate = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith('Bearer ')) {
-    next(new AppError('Missing or invalid authorization header', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED));
+    next(new AppError(SESSION_EXPIRED_MESSAGE, StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED));
     return;
   }
 
@@ -19,11 +21,11 @@ export const authenticate = async (req: Request, _res: Response, next: NextFunct
     const payload = verifyAccessToken(token) as any;
 
     if (payload?.type === 'super_admin') {
-      next(new AppError('Super admin tokens are not valid on staff routes', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
+      next(new AppError("You don't have permission to do this", StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
       return;
     }
     if (payload?.type === 'candidate') {
-      next(new AppError('Candidate tokens are not valid on staff routes', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
+      next(new AppError("You don't have permission to do this", StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
       return;
     }
 
@@ -39,12 +41,12 @@ export const authenticate = async (req: Request, _res: Response, next: NextFunct
     });
 
     if (!tenant) {
-      next(new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED));
+      next(new AppError(SESSION_EXPIRED_MESSAGE, StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED));
       return;
     }
 
     if (tenant.status === 'suspended') {
-      next(new AppError('This account has been suspended. Contact support.', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
+      next(new AppError('This account has been suspended. Contact support.', StatusCodes.FORBIDDEN, ERROR_CODES.TENANT_SUSPENDED));
       return;
     }
 
@@ -54,17 +56,17 @@ export const authenticate = async (req: Request, _res: Response, next: NextFunct
     });
 
     if (!user) {
-      next(new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED));
+      next(new AppError(SESSION_EXPIRED_MESSAGE, StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED));
       return;
     }
 
     if (user.status !== 'active') {
-      next(new AppError('User is not active', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
+      next(new AppError('Your account has been suspended. Contact your company admin to restore access.', StatusCodes.FORBIDDEN, ERROR_CODES.USER_SUSPENDED));
       return;
     }
 
     next();
   } catch {
-    next(new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED));
+    next(new AppError(SESSION_EXPIRED_MESSAGE, StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED));
   }
 };

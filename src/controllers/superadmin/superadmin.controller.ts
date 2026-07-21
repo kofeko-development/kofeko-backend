@@ -129,3 +129,15 @@ export const superAdminRejectCompanyRequest = catchAsync(async (req: Request, re
   const result = await companyRegistrationManagementService.rejectRequest(id, payload.reviewNotes, superAdminId);
   sendSuccess(res, StatusCodes.OK, result.message, result);
 });
+
+export const superAdminForgotPassword = catchAsync(async (req: Request, res: Response) => {
+  const payload = getRequestBody<{ email: string }>(req);
+  await superAdminService.forgotPassword(payload.email);
+  sendSuccess(res, StatusCodes.OK, 'If that email exists, a reset link was sent', null);
+});
+
+export const superAdminResetPassword = catchAsync(async (req: Request, res: Response) => {
+  const payload = getRequestBody<{ token: string; password: string }>(req);
+  await superAdminService.resetPassword(payload.token, payload.password);
+  sendSuccess(res, StatusCodes.OK, 'Password reset successfully', null);
+});

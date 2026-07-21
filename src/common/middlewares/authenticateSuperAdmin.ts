@@ -4,10 +4,13 @@ import { verifySuperAdminAccessToken } from '../auth/superAdmin.jwt';
 import { AppError } from '../errors/AppError';
 import { ERROR_CODES } from '../errors/errorCodes';
 
+const SESSION_EXPIRED_MESSAGE = 'Session expired, please log in again';
+
 export const authenticateSuperAdmin = (req: Request, _res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
-    throw new AppError('Authorization token is missing', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    next(new AppError(SESSION_EXPIRED_MESSAGE, StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED));
+    return;
   }
 
   const token = authHeader.split(' ')[1];
@@ -15,11 +18,13 @@ export const authenticateSuperAdmin = (req: Request, _res: Response, next: NextF
   try {
     payload = verifySuperAdminAccessToken(token) as any;
   } catch {
-    throw new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    next(new AppError(SESSION_EXPIRED_MESSAGE, StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED));
+    return;
   }
 
   if (payload.type !== 'super_admin') {
-    throw new AppError('Tenant tokens are not valid on super admin routes', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
+    next(new AppError("You don't have permission to do this", StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
+    return;
   }
 
   req.superAdmin = { superAdminId: payload.sub };

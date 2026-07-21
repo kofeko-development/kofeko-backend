@@ -6,6 +6,7 @@ Advanced Node.js + TypeScript backend boilerplate for Kofeko platform.
 
 - Authentication & Authorization (RBAC): `docs/auth-authorization.md`
 - User onboarding (create vs invite): `docs/user-onboarding.md`
+- Error categories & toast conventions (with frontend): `../kofeko-app/docs/CONVENTIONS_ERRORS_TOASTS.md`
 
 ## Features
 

@@ -5,10 +5,12 @@ import { AppError } from '../errors/AppError';
 import { ERROR_CODES } from '../errors/errorCodes';
 import { prisma } from '../../config/prisma';
 
+const SESSION_EXPIRED_MESSAGE = 'Session expired, please log in again';
+
 export const authenticateCandidate = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
-    next(new AppError('Missing or invalid authorization header', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED));
+    next(new AppError(SESSION_EXPIRED_MESSAGE, StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED));
     return;
   }
 
@@ -36,9 +38,8 @@ export const authenticateCandidate = async (req: Request, _res: Response, next: 
       return;
     }
 
-    next(new AppError('Staff tokens are not valid on candidate routes', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
+    next(new AppError("You don't have permission to do this", StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
   } catch {
-    next(new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED));
+    next(new AppError(SESSION_EXPIRED_MESSAGE, StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED));
   }
 };
-

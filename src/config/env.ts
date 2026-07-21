@@ -63,6 +63,8 @@ const envSchema = z.object({
   LINKEDIN_CLIENT_SECRET: z.string().optional(),
   LINKEDIN_REDIRECT_URI: z.string().url().optional(),
   LINKEDIN_ENCRYPT_KEY: z.string().min(32).optional(),
+  /** General-purpose AES key for app secrets (2FA, etc.). Falls back to LINKEDIN_ENCRYPT_KEY. */
+  APP_ENCRYPT_KEY: z.string().min(32).optional(),
   /** Set true only after LinkedIn approves w_organization_social on your app (Marketing API). */
   LINKEDIN_REQUEST_ORG_SCOPES: z
     .enum(['true', 'false'])

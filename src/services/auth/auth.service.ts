@@ -26,6 +26,7 @@ import {
 } from '../../common/auth/emailAvailability';
 import { passwordResetEmailTemplate } from '../../common/email/templates/passwordResetEmail';
 import { AppError } from '../../common/errors/AppError';
+import { emailFieldError } from '../../common/errors/fieldErrors';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { cacheService, cacheKeys } from '../../common/cache/cacheService';
 import { CACHE_SESSION_TTL } from '../../common/cache/cacheTtl';
@@ -516,7 +517,12 @@ export const authService = {
         );
       }
 
-      throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError(
+        'No account found with this email. Contact your admin or register your company.',
+        StatusCodes.NOT_FOUND,
+        ERROR_CODES.EMAIL_NOT_FOUND,
+        emailFieldError('No account found with this email. Contact your admin or register your company.'),
+      );
     }
 
     // If user found but belongs to candidate tenant — wrong portal
@@ -698,7 +704,12 @@ export const authService = {
         );
       }
 
-      throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError(
+        'No account found with this email. Create a candidate account to get started.',
+        StatusCodes.NOT_FOUND,
+        ERROR_CODES.EMAIL_NOT_FOUND,
+        emailFieldError('No account found with this email. Create a candidate account to get started.'),
+      );
     }
     if (user.status !== UserStatus.active) {
       throw new AppError('User is not active', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
@@ -918,14 +929,14 @@ export const authService = {
     try {
       decoded = verifyRefreshToken(payload.refreshToken);
     } catch {
-      throw new AppError('Invalid or expired token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError('Session expired, please log in again', StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED);
     }
     const refreshTokenHash = createTokenHash(payload.refreshToken);
 
     const session = await authRepository.findValidSession(decoded.sub, decoded.tenantId, refreshTokenHash);
 
     if (!session) {
-      throw new AppError('Invalid refresh token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError('Session expired, please log in again', StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED);
     }
 
     const newAccessToken = signAccessToken({

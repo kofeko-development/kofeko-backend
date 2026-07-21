@@ -4,9 +4,9 @@ import { env } from '../../config/env';
 const ALGORITHM = 'aes-256-gcm';
 
 function getKey(): Buffer {
-  const key = env.LINKEDIN_ENCRYPT_KEY;
+  const key = env.APP_ENCRYPT_KEY ?? env.LINKEDIN_ENCRYPT_KEY;
   if (!key || key.length < 32) {
-    throw new Error('LINKEDIN_ENCRYPT_KEY must be at least 32 characters');
+    throw new Error('APP_ENCRYPT_KEY or LINKEDIN_ENCRYPT_KEY must be at least 32 characters');
   }
   return Buffer.from(key.slice(0, 32), 'utf8');
 }

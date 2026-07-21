@@ -9,6 +9,11 @@ const config: Config = {
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   clearMocks: true,
+  moduleNameMapper: {
+    '^otplib$': '<rootDir>/src/__tests__/mocks/otplib.ts',
+    '^qrcode$': '<rootDir>/src/__tests__/mocks/qrcode.ts',
+  },
+  testTimeout: 60000,
 };
 
 export default config;

@@ -102,3 +102,35 @@ export const superAdminRejectCompanyRequestSchema = z.object({
     reviewNotes: z.string().min(3).max(500),
   }),
 });
+
+const strongPasswordSchema = z
+  .string()
+  .min(8)
+  .max(128)
+  .regex(/^(?=.*[A-Z])(?=.*\d).+$/, 'Password must include at least one uppercase letter and one number');
+
+export const superAdminForgotPasswordSchema = z.object({
+  body: z.object({
+    email: z.email(),
+  }),
+});
+
+export const superAdminResetPasswordSchema = z.object({
+  body: z.object({
+    token: z.string().min(10),
+    password: strongPasswordSchema,
+  }),
+});
+
+export const superAdminTwoFactorCodeSchema = z.object({
+  body: z.object({
+    code: z.string().min(6).max(16),
+  }),
+});
+
+export const superAdminLogin2FAVerifySchema = z.object({
+  body: z.object({
+    pendingToken: z.string().min(10),
+    code: z.string().min(6).max(16),
+  }),
+});

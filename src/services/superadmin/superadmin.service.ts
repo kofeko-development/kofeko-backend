@@ -2,13 +2,20 @@ import { StatusCodes } from 'http-status-codes';
 import { env } from '../../config/env';
 import { comparePassword, hashPassword } from '../../common/auth/password';
 import { createTokenHash } from '../../common/auth/tokenHash';
-import { signSuperAdminAccessToken, signSuperAdminRefreshToken, verifySuperAdminRefreshToken } from '../../common/auth/superAdmin.jwt';
+import { generateResetToken, getResetTokenExpiryDate } from '../../common/auth/inviteToken';
+import { signSuperAdminAccessToken, signSuperAdminRefreshToken, signSuperAdminPending2FAToken, verifySuperAdminRefreshToken, verifySuperAdminPending2FAToken } from '../../common/auth/superAdmin.jwt';
+import { sendEmail } from '../../common/email/emailProvider';
+import { passwordResetEmailTemplate } from '../../common/email/templates/passwordResetEmail';
 import { AppError } from '../../common/errors/AppError';
+import { emailFieldError } from '../../common/errors/fieldErrors';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { prisma } from '../../config/prisma';
+import { superAdminTwoFactorService } from './superadmin-2fa.service';
 
-const sanitizeSuperAdmin = <T extends { passwordHash: string }>(admin: T): Omit<T, 'passwordHash'> => {
-  const { passwordHash: _passwordHash, ...safe } = admin;
+const sanitizeSuperAdmin = <T extends { passwordHash: string; twoFactorSecret?: string | null; twoFactorBackupCodes?: string[] }>(
+  admin: T,
+): Omit<T, 'passwordHash' | 'twoFactorSecret' | 'twoFactorBackupCodes'> => {
+  const { passwordHash: _passwordHash, twoFactorSecret: _twoFactorSecret, twoFactorBackupCodes: _backupCodes, ...safe } = admin;
   return safe;
 };
 
@@ -59,13 +66,66 @@ export const superAdminService = {
     });
 
     if (!admin) {
-      throw new AppError('Invalid super admin credentials.', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError(
+        'No account found with this email. Contact the platform administrator.',
+        StatusCodes.NOT_FOUND,
+        ERROR_CODES.EMAIL_NOT_FOUND,
+        emailFieldError('No account found with this email. Contact the platform administrator.'),
+      );
     }
 
     const ok = await comparePassword(password, admin.passwordHash);
     if (!ok) {
-      throw new AppError('Invalid super admin credentials.', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
+
+    if (admin.twoFactorEnabled) {
+      const pendingToken = signSuperAdminPending2FAToken({
+        sub: admin.id,
+        type: 'super_admin_2fa_pending',
+      });
+      return {
+        requiresTwoFactor: true as const,
+        pendingToken,
+        superAdmin: sanitizeSuperAdmin(admin),
+      };
+    }
+
+    const payload = { sub: admin.id, type: 'super_admin' as const };
+    const accessToken = signSuperAdminAccessToken(payload);
+    const refreshToken = signSuperAdminRefreshToken(payload);
+
+    await prisma.superAdminSession.create({
+      data: {
+        superAdminId: admin.id,
+        refreshTokenHash: createTokenHash(refreshToken),
+        userAgent,
+        ipAddress,
+        expiresAt: getRefreshExpiryDate(),
+      },
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      superAdmin: sanitizeSuperAdmin(admin),
+    };
+  },
+
+  async verifyLogin2FA(pendingToken: string, code: string, userAgent?: string, ipAddress?: string) {
+    let decoded;
+    try {
+      decoded = verifySuperAdminPending2FAToken(pendingToken);
+    } catch {
+      throw new AppError('Verification session expired. Please sign in again.', StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED);
+    }
+
+    const admin = await prisma.superAdmin.findUnique({ where: { id: decoded.sub } });
+    if (!admin) {
+      throw new AppError('Invalid credentials', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    await superAdminTwoFactorService.verifyLoginCode(admin.id, code);
 
     const payload = { sub: admin.id, type: 'super_admin' as const };
     const accessToken = signSuperAdminAccessToken(payload);
@@ -91,7 +151,7 @@ export const superAdminService = {
   async refresh(refreshToken: string) {
     const decoded = verifySuperAdminRefreshToken(refreshToken);
     if (decoded.type !== 'super_admin') {
-      throw new AppError('Invalid refresh token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError('Session expired, please log in again', StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED);
     }
 
     const session = await prisma.superAdminSession.findFirst({
@@ -104,7 +164,7 @@ export const superAdminService = {
     });
 
     if (!session) {
-      throw new AppError('Invalid refresh token', StatusCodes.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+      throw new AppError('Session expired, please log in again', StatusCodes.UNAUTHORIZED, ERROR_CODES.TOKEN_EXPIRED);
     }
 
     const accessToken = signSuperAdminAccessToken({ sub: decoded.sub, type: 'super_admin' });
@@ -196,5 +256,76 @@ export const superAdminService = {
     }
 
     return sanitizeSuperAdmin(updated);
+  },
+
+  async forgotPassword(email: string): Promise<void> {
+    const normalized = email.trim().toLowerCase();
+    const admin = await prisma.superAdmin.findUnique({ where: { email: normalized } });
+    if (!admin) {
+      return;
+    }
+
+    const rawToken = generateResetToken();
+    const tokenHash = createTokenHash(rawToken);
+
+    await prisma.superAdminPasswordResetToken.create({
+      data: {
+        superAdminId: admin.id,
+        token: tokenHash,
+        expiresAt: getResetTokenExpiryDate(),
+      },
+    });
+
+    const resetLink = `${env.APP_FRONTEND_URL}/superadmin/reset-password?token=${rawToken}`;
+    const userName = `${admin.firstName} ${admin.lastName}`.trim();
+
+    await sendEmail({
+      to: admin.email,
+      subject: 'Reset your Kofeko superadmin password',
+      html: passwordResetEmailTemplate({ resetLink, userName }),
+    });
+  },
+
+  async resetPassword(token: string, password: string): Promise<void> {
+    const tokenHash = createTokenHash(token);
+    const resetToken = await prisma.superAdminPasswordResetToken.findUnique({
+      where: { token: tokenHash },
+      include: { superAdmin: true },
+    });
+
+    if (!resetToken) {
+      throw new AppError(
+        'Invalid reset link. Request a new password reset from the login page.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.RESET_TOKEN_INVALID,
+      );
+    }
+
+    if (resetToken.usedAt) {
+      throw new AppError(
+        'This reset link has already been used. Request a new password reset if needed.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.RESET_TOKEN_USED,
+      );
+    }
+
+    if (resetToken.expiresAt.getTime() < Date.now()) {
+      throw new AppError(
+        'This reset link has expired (valid for 1 hour). Request a new password reset.',
+        StatusCodes.BAD_REQUEST,
+        ERROR_CODES.RESET_TOKEN_EXPIRED,
+      );
+    }
+
+    const passwordHash = await hashPassword(password);
+    await prisma.superAdmin.update({
+      where: { id: resetToken.superAdminId },
+      data: { passwordHash },
+    });
+    await prisma.superAdminPasswordResetToken.update({
+      where: { id: resetToken.id },
+      data: { usedAt: new Date() },
+    });
+    await prisma.superAdminSession.deleteMany({ where: { superAdminId: resetToken.superAdminId } });
   },
 };

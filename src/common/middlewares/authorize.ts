@@ -36,7 +36,7 @@ export const authorize = (requiredPermissions: string[]) => {
     const isAllowed = requiredPermissions.every((permission) => userPermissions.has(permission));
 
     if (!isAllowed) {
-      next(new AppError('Forbidden', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
+      next(new AppError("You don't have permission to do this", StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN));
       return;
     }
 

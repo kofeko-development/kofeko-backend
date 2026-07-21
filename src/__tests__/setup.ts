@@ -19,6 +19,7 @@ beforeEach(async () => {
   await prisma.notification.deleteMany();
   await prisma.message.deleteMany();
   await prisma.passwordResetToken.deleteMany();
+  await prisma.superAdminPasswordResetToken.deleteMany();
   await prisma.companyRegistrationRequest.deleteMany();
   await prisma.companySignupEmailOtp.deleteMany();
   await prisma.inviteToken.deleteMany();

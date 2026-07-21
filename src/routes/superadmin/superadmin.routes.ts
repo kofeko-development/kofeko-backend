@@ -14,6 +14,8 @@ import {
   superAdminRefresh,
   superAdminRejectCompanyRequest,
   superAdminSuspendTenant,
+  superAdminForgotPassword,
+  superAdminResetPassword,
 } from '../../controllers/superadmin/superadmin.controller';
 import {
   superAdminGetAutoApproveSetting,
@@ -32,8 +34,19 @@ import {
   superAdminSuspendTenantSchema,
   superAdminTenantIdParamSchema,
   superAdminTenantListQuerySchema,
+  superAdminForgotPasswordSchema,
+  superAdminResetPasswordSchema,
+  superAdminTwoFactorCodeSchema,
+  superAdminLogin2FAVerifySchema,
 } from '../../validations/superadmin/superadmin.validation';
 import { authenticateSuperAdmin } from '../../common/middlewares/authenticateSuperAdmin';
+import {
+  superAdminTwoFactorSetup,
+  superAdminTwoFactorVerify,
+  superAdminTwoFactorDisable,
+  superAdminTwoFactorStatus,
+  superAdminLogin2FAVerify,
+} from '../../controllers/superadmin/superadmin-2fa.controller';
 
 const superAdminRouter = Router();
 
@@ -57,6 +70,24 @@ superAdminRouter.post('/auth/bootstrap', validateRequest(superAdminBootstrapSche
  *     security: []
  */
 superAdminRouter.post('/auth/login', validateRequest(superAdminLoginSchema), superAdminLogin);
+
+superAdminRouter.post(
+  '/auth/forgot-password',
+  validateRequest(superAdminForgotPasswordSchema),
+  superAdminForgotPassword,
+);
+
+superAdminRouter.post(
+  '/auth/reset-password',
+  validateRequest(superAdminResetPasswordSchema),
+  superAdminResetPassword,
+);
+
+superAdminRouter.post(
+  '/auth/login/2fa-verify',
+  validateRequest(superAdminLogin2FAVerifySchema),
+  superAdminLogin2FAVerify,
+);
 
 /**
  * @openapi
@@ -199,5 +230,20 @@ superAdminRouter.get('/analytics', authenticateSuperAdmin, superAdminPlatformAna
 
 superAdminRouter.get('/settings/auto-approve', authenticateSuperAdmin, superAdminGetAutoApproveSetting);
 superAdminRouter.post('/settings/auto-approve', authenticateSuperAdmin, superAdminSetAutoApproveSetting);
+
+superAdminRouter.post('/2fa/setup', authenticateSuperAdmin, superAdminTwoFactorSetup);
+superAdminRouter.post(
+  '/2fa/verify',
+  authenticateSuperAdmin,
+  validateRequest(superAdminTwoFactorCodeSchema),
+  superAdminTwoFactorVerify,
+);
+superAdminRouter.post(
+  '/2fa/disable',
+  authenticateSuperAdmin,
+  validateRequest(superAdminTwoFactorCodeSchema),
+  superAdminTwoFactorDisable,
+);
+superAdminRouter.get('/2fa/status', authenticateSuperAdmin, superAdminTwoFactorStatus);
 
 export default superAdminRouter;
