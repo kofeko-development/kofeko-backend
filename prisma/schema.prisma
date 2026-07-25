@@ -114,7 +114,9 @@ model Tenant {
   slug        String       @unique
   companyId   String?      @unique
   company     Company?     @relation(fields: [companyId], references: [id])
-  status      TenantStatus @default(active)
+  status           TenantStatus @default(active)
+  suspendedUntil   DateTime?
+  suspensionReason String?
   users       User[]
   inviteTokens InviteToken[]
   passwordResetTokens PasswordResetToken[]
@@ -177,7 +179,7 @@ model SuperAdminSession {
 model User {
   id           String     @id @default(uuid())
   tenantId     String
-  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   firstName    String
   lastName     String
   email        String
@@ -205,7 +207,7 @@ model InviteToken {
   token     String   @unique
   expiresAt DateTime
   usedAt    DateTime?
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
 }
@@ -217,7 +219,7 @@ model PasswordResetToken {
   token     String   @unique
   expiresAt DateTime
   usedAt    DateTime?
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
 }
@@ -225,7 +227,7 @@ model PasswordResetToken {
 model Role {
   id              String           @id @default(uuid())
   tenantId        String
-  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name            String
   description     String?
   rolePermissions RolePermission[]
@@ -239,7 +241,7 @@ model Role {
 model Permission {
   id              String           @id @default(uuid())
   tenantId        String
-  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   key             String
   description     String?
   rolePermissions RolePermission[]
@@ -268,7 +270,7 @@ model UserRole {
   roleId    String
   user      User     @relation(fields: [userId], references: [id])
   role      Role     @relation(fields: [roleId], references: [id])
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@unique([tenantId, userId, roleId])
@@ -283,7 +285,7 @@ model Session {
   ipAddress        String?
   expiresAt        DateTime
   revokedAt        DateTime?
-  tenant           Tenant    @relation(fields: [tenantId], references: [id])
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user             User      @relation(fields: [userId], references: [id])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -292,7 +294,7 @@ model Session {
 model Job {
   id              String      @id @default(uuid())
   tenantId        String
-  tenant          Tenant      @relation(fields: [tenantId], references: [id])
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title           String
   description     String
   location        String?
@@ -320,7 +322,7 @@ model LinkedInConnection {
   id                String    @id @default(uuid())
   tenantId          String
   userId            String
-  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user              User      @relation(fields: [userId], references: [id])
   linkedInPersonId  String?
   linkedInName      String?
@@ -343,7 +345,7 @@ model LinkedInPost {
   tenantId        String
   jobId           String
   postedByUserId  String
-  tenant          Tenant             @relation(fields: [tenantId], references: [id])
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   job             Job                @relation(fields: [jobId], references: [id])
   postedByUser    User               @relation(fields: [postedByUserId], references: [id])
   linkedInPostId  String?
@@ -365,7 +367,7 @@ model LinkedInPost {
 model Candidate {
   id               String           @id @default(uuid())
   tenantId         String
-  tenant           Tenant           @relation(fields: [tenantId], references: [id])
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   firstName        String
   lastName         String
   email            String
@@ -401,7 +403,7 @@ model Candidate {
 model Pipeline {
   id            String        @id @default(uuid())
   tenantId      String
-  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   jobId         String
   job           Job           @relation(fields: [jobId], references: [id])
   candidateId   String
@@ -421,7 +423,7 @@ model Pipeline {
 model Evaluation {
   id             String    @id @default(uuid())
   tenantId       String
-  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   jobId          String
   job            Job       @relation(fields: [jobId], references: [id])
   candidateId    String
@@ -446,7 +448,7 @@ model Evaluation {
 model Notification {
   id          String              @id @default(uuid())
   tenantId    String
-  tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   channel     NotificationChannel
   type        String
   title       String
@@ -461,7 +463,7 @@ model Notification {
 model Message {
   id          String   @id @default(uuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   type        String
   subject     String
   body        String
@@ -476,7 +478,7 @@ model Message {
 model Metric {
   id          String   @id @default(uuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   value       Float
   dimension   String?
@@ -488,7 +490,7 @@ model Metric {
 model AuditLog {
   id          String          @id @default(uuid())
   tenantId    String
-  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   actorId     String?
   action      AuditActionType
   entityType  String

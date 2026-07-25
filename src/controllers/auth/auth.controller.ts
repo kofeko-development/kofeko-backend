@@ -131,6 +131,27 @@ export const updateProfile = catchAsync(async (req: Request, res: Response) => {
   sendSuccess(res, StatusCodes.OK, 'Profile updated successfully', result);
 });
 
+export const sendChangeEmailOtp = catchAsync(async (req: Request, res: Response) => {
+  const { user } = req;
+  const { newEmail } = getRequestBody<{ newEmail: string }>(req);
+  const result = await authService.sendChangeEmailOtp(String(user?.userId), String(user?.tenantId), { newEmail });
+  sendSuccess(res, StatusCodes.OK, 'Verification code sent', result);
+});
+
+export const verifyChangeEmailOtp = catchAsync(async (req: Request, res: Response) => {
+  const { user } = req;
+  const { newEmail, code } = getRequestBody<{ newEmail: string; code: string }>(req);
+  const result = await authService.verifyChangeEmailOtp(String(user?.userId), String(user?.tenantId), { newEmail, code });
+  sendSuccess(res, StatusCodes.OK, 'Email updated successfully', result);
+});
+
+export const changePassword = catchAsync(async (req: Request, res: Response) => {
+  const { user } = req;
+  const { currentPassword, newPassword } = getRequestBody<{ currentPassword: string; newPassword: string }>(req);
+  await authService.changePassword(String(user?.userId), String(user?.tenantId), { currentPassword, newPassword });
+  sendSuccess(res, StatusCodes.OK, 'Password updated successfully', null);
+});
+
 export const logout = catchAsync(async (req: Request, res: Response) => {
   const logoutInput = getRequestBody<RefreshTokenInput>(req);
   await authService.logout(logoutInput.refreshToken);

@@ -4,7 +4,7 @@ import { PERMISSIONS } from '../../common/constants/permissions';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { authRepository } from '../../repositories/auth/auth.repository';
-import { sendCompanyApprovalEmail } from '../email/approval-email.service';
+import { sendCompanyApprovalEmail, sendCompanyRejectionEmail } from '../email/approval-email.service';
 
 import { CompanyRegistrationStatus } from '@prisma/client';
 
@@ -32,6 +32,7 @@ export const companyRegistrationManagementService = {
       adminEmail: r.adminEmail ?? '',
       usesSignupCredentials: Boolean(r.adminPasswordHash && r.adminEmail),
       status: r.status,
+      approvedTenantId: r.approvedTenantId,
       createdAt: r.createdAt.toISOString(),
     }));
   },
@@ -102,10 +103,18 @@ export const companyRegistrationManagementService = {
   },
 
   async rejectRequest(requestId: string, reviewNotes: string, superAdminId: string) {
-    await authRepository.rejectCompanyRegistrationRequest(requestId, {
+    const updated = await authRepository.rejectCompanyRegistrationRequest(requestId, {
       reviewNotes,
       reviewedBySuperAdminId: superAdminId,
     });
+    const toEmail = updated.adminEmail || updated.contactEmail;
+    if (toEmail) {
+      void sendCompanyRejectionEmail({
+        companyName: updated.companyName,
+        toEmail,
+        reason: reviewNotes,
+      }).catch(() => undefined);
+    }
     return { message: 'Registration request rejected.' };
   },
 };

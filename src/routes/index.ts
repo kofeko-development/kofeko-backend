@@ -17,6 +17,7 @@ import portalRoutes from './portal/portal.routes';
 import aiRoutes from './ai/ai.routes';
 import linkedInRoutes from './linkedin/linkedin.routes';
 import filesRoutes from './files/files.routes';
+import realtimeRoutes from './realtime/realtime.routes';
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use('/superadmin', superAdminRoutes);
 router.use('/portal', portalRoutes);
 router.use('/ai', aiRoutes);
 router.use('/linkedin', linkedInRoutes);
+router.use('/realtime', realtimeRoutes);
 
 export default router;

@@ -37,7 +37,7 @@ export const authenticate = async (req: Request, _res: Response, next: NextFunct
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: payload.tenantId },
-      select: { status: true },
+      select: { status: true, suspendedUntil: true },
     });
 
     if (!tenant) {
@@ -46,8 +46,16 @@ export const authenticate = async (req: Request, _res: Response, next: NextFunct
     }
 
     if (tenant.status === 'suspended') {
-      next(new AppError('This account has been suspended. Contact support.', StatusCodes.FORBIDDEN, ERROR_CODES.TENANT_SUSPENDED));
-      return;
+      if (tenant.suspendedUntil && tenant.suspendedUntil > new Date()) {
+        const daysLeft = Math.ceil((tenant.suspendedUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        next(new AppError(`This account is temporarily suspended for ${daysLeft} more day(s). Contact support.`, StatusCodes.FORBIDDEN, ERROR_CODES.TENANT_SUSPENDED));
+        return;
+      } else if (!tenant.suspendedUntil) {
+        next(new AppError('This account has been suspended. Contact support.', StatusCodes.FORBIDDEN, ERROR_CODES.TENANT_SUSPENDED));
+        return;
+      }
+      // If suspendedUntil is in the past, we allow them to proceed. 
+      // Ideally a background job would mark them as active again.
     }
 
     const user = await prisma.user.findFirst({

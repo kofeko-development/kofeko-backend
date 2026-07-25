@@ -478,32 +478,31 @@ export const authService = {
       })();
 
     if (!user) {
-      // Check if this email has a pending company registration request
-      const pendingRequest = await prisma.companyRegistrationRequest.findFirst({
+      // Check the latest company registration request for this email
+      const latestRequest = await prisma.companyRegistrationRequest.findFirst({
         where: {
-          adminEmail: email,
-          status: { in: ['pending', 'approved' as any] } // Use lowercase as per schema
+          OR: [
+            { adminEmail: email },
+            { contactEmail: email },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (latestRequest) {
+        if (latestRequest.status === 'pending' || (latestRequest.status as string) === 'approved') {
+          throw new AppError(
+            'Your company registration is pending approval. You will receive an email once approved.',
+            StatusCodes.FORBIDDEN,
+            ERROR_CODES.APPROVAL_PENDING
+          );
+        } else if (latestRequest.status === 'rejected') {
+          throw new AppError(
+            'Your company registration request was not approved. Please contact support.',
+            StatusCodes.FORBIDDEN,
+            ERROR_CODES.APPROVAL_REJECTED
+          );
         }
-      });
-
-      if (pendingRequest) {
-        throw new AppError(
-          'Your company registration is pending approval. You will receive an email once approved.',
-          StatusCodes.FORBIDDEN,
-          ERROR_CODES.APPROVAL_PENDING
-        );
-      }
-
-      const rejectedRequest = await prisma.companyRegistrationRequest.findFirst({
-        where: { adminEmail: email, status: 'rejected' }
-      });
-
-      if (rejectedRequest) {
-        throw new AppError(
-          'Your company registration request was not approved. Please contact support.',
-          StatusCodes.FORBIDDEN,
-          ERROR_CODES.APPROVAL_REJECTED
-        );
       }
 
       const superAdminExists = await prisma.superAdmin.findUnique({
@@ -989,6 +988,112 @@ export const authService = {
     return this.me(userId, tenantId);
   },
 
+  async sendChangeEmailOtp(userId: string, tenantId: string, payload: { newEmail: string }): Promise<{ sent: true }> {
+    const newEmail = normalizeAccountEmail(payload.newEmail);
+    if (!newEmail) {
+      throw new AppError('Valid new email is required', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const user = await authRepository.findUserByIdAndTenant(userId, tenantId);
+    if (!user) {
+      throw new AppError('User not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    const roles = (user.userRoles ?? []).map((ur: any) => ur.role?.name);
+    if (!roles.includes('company_admin')) {
+      throw new AppError('Only company admins can change their email address', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
+    }
+
+    if (user.email.toLowerCase() === newEmail) {
+      throw new AppError('New email must be different from your current email address', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    await assertEmailAvailableForCompanyAccount(newEmail);
+
+    const latest = await authRepository.findLatestCompanySignupOtp(newEmail);
+    const active = await authRepository.findActiveCompanySignupOtp(newEmail);
+    const cooldownMs = companySignupOtpCooldownMs();
+    const elapsed = latest ? Date.now() - latest.createdAt.getTime() : Infinity;
+    if (active && latest && !latest.consumedAt && elapsed < cooldownMs) {
+      const waitSec = Math.max(1, Math.ceil((cooldownMs - elapsed) / 1000));
+      throw new AppError(
+        `A verification code was just sent. Please wait ${waitSec} seconds before requesting another.`,
+        StatusCodes.TOO_MANY_REQUESTS,
+        ERROR_CODES.OTP_RATE_LIMITED,
+      );
+    }
+
+    const code = String(crypto.randomInt(100000, 1000000));
+    const codeHash = hashCompanySignupOtpCode(newEmail, code);
+    const expiresAt = new Date(Date.now() + COMPANY_SIGNUP_OTP_TTL_MS);
+
+    await authRepository.deletePendingCompanySignupOtpsForEmail(newEmail);
+    await authRepository.createCompanySignupEmailOtp({ email: newEmail, codeHash, expiresAt });
+
+    await sendEmail({
+      to: newEmail,
+      subject: 'Your Kofeko email change verification code',
+      html: companyRegistrationOtpEmailTemplate({ code }),
+    });
+
+    return { sent: true };
+  },
+
+  async verifyChangeEmailOtp(userId: string, tenantId: string, payload: { newEmail: string; code: string }) {
+    const newEmail = normalizeAccountEmail(payload.newEmail);
+    const code = payload.code.trim();
+    if (!newEmail || !/^\d{6}$/.test(code)) {
+      throw new AppError('Invalid email or code', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const user = await authRepository.findUserByIdAndTenant(userId, tenantId);
+    if (!user) {
+      throw new AppError('User not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    const roles = (user.userRoles ?? []).map((ur: any) => ur.role?.name);
+    if (!roles.includes('company_admin')) {
+      throw new AppError('Only company admins can change their email address', StatusCodes.FORBIDDEN, ERROR_CODES.FORBIDDEN);
+    }
+
+    const otp = await authRepository.findActiveCompanySignupOtp(newEmail);
+    if (!otp) {
+      throw new AppError('Verification code has expired. Request a new one.', StatusCodes.BAD_REQUEST, ERROR_CODES.OTP_EXPIRED);
+    }
+
+    if (otp.attempts >= COMPANY_SIGNUP_OTP_MAX_ATTEMPTS) {
+      throw new AppError('Too many incorrect attempts. Please request a new code.', StatusCodes.BAD_REQUEST, ERROR_CODES.OTP_MAX_ATTEMPTS);
+    }
+
+    const expectedHash = hashCompanySignupOtpCode(newEmail, code);
+    if (expectedHash !== otp.codeHash) {
+      await authRepository.incrementCompanySignupOtpAttempts(otp.id);
+      throw new AppError('Incorrect verification code. Please check the code in your email.', StatusCodes.BAD_REQUEST, ERROR_CODES.OTP_INVALID);
+    }
+
+    await prisma.companySignupEmailOtp.update({
+      where: { id: otp.id },
+      data: { consumedAt: new Date() },
+    });
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { email: newEmail },
+    });
+
+    await cacheService.invalidateStaffSession(tenantId, userId);
+
+    const updatedUser = await this.me(userId, tenantId);
+    const newAccessToken = signAccessToken({
+      sub: userId,
+      tenantId: tenantId,
+      email: newEmail,
+      type: 'staff',
+    });
+
+    return { user: updatedUser, accessToken: newAccessToken };
+  },
+
   async logout(refreshToken: string): Promise<void> {
     const decoded = verifyRefreshToken(refreshToken);
     const refreshTokenHash = createTokenHash(refreshToken);
@@ -1163,6 +1268,33 @@ export const authService = {
       entityId: resetToken.userId,
       metadata: {
         passwordReset: true,
+      },
+    });
+  },
+
+  async changePassword(userId: string, tenantId: string, payload: { currentPassword: string; newPassword: string }): Promise<void> {
+    const user = await authRepository.findUserByIdAndTenant(userId, tenantId);
+    if (!user) {
+      throw new AppError('User not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    const isMatch = await comparePassword(payload.currentPassword, user.passwordHash);
+    if (!isMatch) {
+      throw new AppError('Incorrect current password', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const newHash = await hashPassword(payload.newPassword);
+    await authRepository.updateUserPassword(user.id, newHash);
+    await cacheService.invalidateStaffSession(tenantId, userId);
+
+    await auditService.createAuditLog({
+      tenantId,
+      actorId: userId,
+      action: 'update',
+      entityType: 'user',
+      entityId: userId,
+      metadata: {
+        passwordChange: true,
       },
     });
   },

@@ -177,6 +177,13 @@ export const resetPasswordSchema = z.object({
   }),
 });
 
+export const changePasswordSchema = z.object({
+  body: z.object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: strongPasswordSchema,
+  }),
+});
+
 export const updateStaffProfileSchema = z.object({
   body: z
     .object({
@@ -186,4 +193,17 @@ export const updateStaffProfileSchema = z.object({
     .refine((data) => data.firstName !== undefined || data.lastName !== undefined, {
       message: 'At least one field must be provided',
     }),
+});
+
+export const sendChangeEmailOtpSchema = z.object({
+  body: z.object({
+    newEmail: z.email('Enter a valid email address'),
+  }),
+});
+
+export const verifyChangeEmailOtpSchema = z.object({
+  body: z.object({
+    newEmail: z.email('Enter a valid email address'),
+    code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your email'),
+  }),
 });

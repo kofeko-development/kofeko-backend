@@ -20,6 +20,9 @@ import {
   sendCandidateSignupEmailOtp,
   verifyCandidateSignupEmailOtp,
   uploadPublicLogo,
+  sendChangeEmailOtp,
+  verifyChangeEmailOtp,
+  changePassword,
 } from '../../controllers/auth/auth.controller';
 import { authenticate } from '../../common/middlewares/authenticate';
 import { validateRequest } from '../../common/middlewares/validateRequest';
@@ -42,6 +45,9 @@ import {
   sendCandidateSignupEmailOtpSchema,
   verifyCandidateSignupEmailOtpSchema,
   updateStaffProfileSchema,
+  sendChangeEmailOtpSchema,
+  verifyChangeEmailOtpSchema,
+  changePasswordSchema,
 } from '../../validations/auth/auth.validation';
 import multer from 'multer';
 
@@ -240,5 +246,32 @@ authRouter.patch('/profile', authenticate, validateRequest(updateStaffProfileSch
  *     security: []
  */
 authRouter.post('/logout', validateRequest(logoutSchema), logout);
+
+/**
+ * @openapi
+ * /api/v1/auth/change-email-otp/send:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Send OTP to new email address for company admin email change
+ */
+authRouter.post('/change-email-otp/send', authenticate, validateRequest(sendChangeEmailOtpSchema), sendChangeEmailOtp);
+
+/**
+ * @openapi
+ * /api/v1/auth/change-email-otp/verify:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Verify OTP and update email address for company admin
+ */
+authRouter.post('/change-email-otp/verify', authenticate, validateRequest(verifyChangeEmailOtpSchema), verifyChangeEmailOtp);
+
+/**
+ * @openapi
+ * /api/v1/auth/change-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Change password for authenticated staff/admin user
+ */
+authRouter.post('/change-password', authenticate, validateRequest(changePasswordSchema), changePassword);
 
 export default authRouter;

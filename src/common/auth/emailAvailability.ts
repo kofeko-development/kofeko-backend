@@ -30,7 +30,10 @@ export async function assertEmailAvailableForCompanyAccount(email: string): Prom
 
   const pendingRegistration = await prisma.companyRegistrationRequest.findFirst({
     where: {
-      adminEmail: normalized,
+      OR: [
+        { adminEmail: normalized },
+        { contactEmail: normalized },
+      ],
       status: 'pending',
     },
     select: { id: true },

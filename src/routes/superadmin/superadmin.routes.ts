@@ -13,7 +13,8 @@ import {
   superAdminPlatformAnalytics,
   superAdminRefresh,
   superAdminRejectCompanyRequest,
-  superAdminSuspendTenant,
+  superAdminRestrictTenant,
+  superAdminDeleteTenant,
   superAdminForgotPassword,
   superAdminResetPassword,
 } from '../../controllers/superadmin/superadmin.controller';
@@ -193,16 +194,30 @@ superAdminRouter.get(
 
 /**
  * @openapi
- * /api/v1/superadmin/tenants/{id}/suspend:
+ * /api/v1/superadmin/tenants/{id}/restrict:
  *   post:
  *     tags: [SuperAdmin]
- *     summary: Suspend tenant
+ *     summary: Restrict tenant temporarily
  */
 superAdminRouter.post(
-  '/tenants/:id/suspend',
+  '/tenants/:id/restrict',
   authenticateSuperAdmin,
   validateRequest(superAdminSuspendTenantSchema),
-  superAdminSuspendTenant,
+  superAdminRestrictTenant,
+);
+
+/**
+ * @openapi
+ * /api/v1/superadmin/tenants/{id}:
+ *   delete:
+ *     tags: [SuperAdmin]
+ *     summary: Permanently delete tenant
+ */
+superAdminRouter.delete(
+  '/tenants/:id',
+  authenticateSuperAdmin,
+  validateRequest(superAdminSuspendTenantSchema), // Reusing schema since it requires 'reason'
+  superAdminDeleteTenant,
 );
 
 /**

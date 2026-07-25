@@ -5,6 +5,7 @@ import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { communicationService } from '../communication/communication.service';
 import { cacheKeys, cacheService } from '../../common/cache/cacheService';
 import { CACHE_LIST_TTL } from '../../common/cache/cacheTtl';
+import { eventBus } from '../../common/events/eventBus';
 
 function applicationsQueryKey(pagination: { page: number; limit: number }): string {
   return `${pagination.page}:${pagination.limit}`;
@@ -78,6 +79,7 @@ export const portalApplicationService = {
 
     await cacheService.invalidateMyApplications(candidateId);
     await cacheService.invalidateTenantPipelines(tenantId, jobId);
+    eventBus.emitTyped('job:applications_updated', { tenantId, jobId });
     await cacheService.invalidateJob(tenantId, jobId);
 
     return {

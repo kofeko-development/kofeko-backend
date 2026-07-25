@@ -14,6 +14,7 @@ import { pipelineRepository } from '../../repositories/pipeline/pipeline.reposit
 import type { SkillWeight } from '../../types/ai/ai.types';
 import { CreateEvaluationInput, UpdateEvaluationInput } from '../../types/evaluation/evaluation.types';
 import { cacheService } from '../../common/cache/cacheService';
+import { eventBus } from '../../common/events/eventBus';
 
 export const evaluationService = {
   async createEvaluation(payload: CreateEvaluationInput, actorId?: string): Promise<Evaluation> {
@@ -32,6 +33,7 @@ export const evaluationService = {
       },
     });
     await cacheService.invalidateTenantPipelines(payload.tenantId, evaluation.jobId);
+    eventBus.emitTyped('job:applications_updated', { tenantId: payload.tenantId, jobId: evaluation.jobId });
     return evaluation;
   },
 
@@ -62,6 +64,7 @@ export const evaluationService = {
       metadata: { before: currentEvaluation, after: updatedEvaluation },
     });
     await cacheService.invalidateTenantPipelines(tenantId, updatedEvaluation.jobId);
+    eventBus.emitTyped('job:applications_updated', { tenantId, jobId: updatedEvaluation.jobId });
     return updatedEvaluation;
   },
 
@@ -165,6 +168,7 @@ export const evaluationService = {
     });
 
     await cacheService.invalidateTenantPipelines(tenantId, payload.jobId);
+    eventBus.emitTyped('job:applications_updated', { tenantId, jobId: payload.jobId });
     return evaluation;
   },
 

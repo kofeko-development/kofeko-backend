@@ -13,6 +13,7 @@ import { prisma } from '../../config/prisma';
 import { ROLE_NAMES } from '../../common/constants/roles';
 import { communicationService } from '../communication/communication.service';
 import { cacheService, cacheKeys } from '../../common/cache/cacheService';
+import { eventBus } from '../../common/events/eventBus';
 import { CACHE_LIST_TTL } from '../../common/cache/cacheTtl';
 
 function pipelinesQueryKey(
@@ -103,6 +104,7 @@ export const pipelineService = {
     await cacheService.invalidateTenantPipelines(payload.tenantId, payload.jobId);
     await cacheService.invalidateMyApplications(payload.candidateId);
     await cacheService.invalidateJob(payload.tenantId, payload.jobId);
+    eventBus.emitTyped('job:applications_updated', { tenantId: payload.tenantId, jobId: payload.jobId });
     return pipeline;
   },
 
@@ -286,6 +288,7 @@ export const pipelineService = {
 
     await cacheService.invalidateTenantPipelines(tenantId, currentPipeline.jobId);
     await cacheService.invalidateMyApplications(currentPipeline.candidateId, id);
+    eventBus.emitTyped('job:applications_updated', { tenantId, jobId: currentPipeline.jobId });
     return updatedPipeline;
   },
 

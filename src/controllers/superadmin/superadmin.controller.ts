@@ -77,12 +77,19 @@ export const superAdminGetTenant = catchAsync(async (req: Request, res: Response
   sendSuccess(res, StatusCodes.OK, 'Tenant fetched', result);
 });
 
-export const superAdminSuspendTenant = catchAsync(async (req: Request, res: Response) => {
+export const superAdminRestrictTenant = catchAsync(async (req: Request, res: Response) => {
+  const id = requireStringValue(req.params.id, 'id');
+  const payload = getRequestBody<{ reason: string; days?: number }>(req);
+  const superAdminId = String(req.superAdmin?.superAdminId);
+  const result = await tenantManagementService.restrictTenant(id, payload.reason, superAdminId, payload.days);
+  sendSuccess(res, StatusCodes.OK, 'Tenant restricted', result);
+});
+
+export const superAdminDeleteTenant = catchAsync(async (req: Request, res: Response) => {
   const id = requireStringValue(req.params.id, 'id');
   const payload = getRequestBody<{ reason: string }>(req);
-  const superAdminId = String(req.superAdmin?.superAdminId);
-  const result = await tenantManagementService.suspendTenant(id, payload.reason, superAdminId);
-  sendSuccess(res, StatusCodes.OK, 'Tenant suspended', result);
+  await tenantManagementService.deleteTenant(id, payload.reason);
+  sendSuccess(res, StatusCodes.OK, 'Tenant and all associated data permanently deleted', null);
 });
 
 export const superAdminActivateTenant = catchAsync(async (req: Request, res: Response) => {
