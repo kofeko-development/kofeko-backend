@@ -322,10 +322,10 @@ export const authRepository = {
         email,
         ...(excludeTenantSlug
           ? {
-              tenant: {
-                slug: { not: excludeTenantSlug },
-              },
-            }
+            tenant: {
+              slug: { not: excludeTenantSlug },
+            },
+          }
           : {}),
       },
       include: {
@@ -412,7 +412,7 @@ export const authRepository = {
 
   async findUserByTenantAndEmail(tenantId: string, email: string): Promise<User | null> {
     return prisma.user.findFirst({
-      where: { tenantId, email },
+      where: { tenantId, email: email.trim().toLowerCase() },
     });
   },
 

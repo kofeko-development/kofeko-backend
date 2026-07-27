@@ -3,6 +3,7 @@ import { UserStatus } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
+import { logger } from '../../common/logger/logger';
 import { comparePassword, hashPassword } from '../../common/auth/password';
 import { createTokenHash } from '../../common/auth/tokenHash';
 import { generateResetToken, getResetTokenExpiryDate } from '../../common/auth/inviteToken';
@@ -1164,29 +1165,37 @@ export const authService = {
   },
 
   async forgotPassword(payload: ForgotPasswordInput): Promise<void> {
+    const normalizedEmail = payload.email.trim().toLowerCase();
     let tenantId: string | undefined;
     let userId: string | undefined;
-    let userEmail = payload.email;
+    let userEmail = normalizedEmail;
     let userName = 'User';
+    let isCandidate = false;
 
     if (!payload.tenantSlug) {
       const user = await prisma.user.findFirst({
-        where: { email: payload.email },
+        where: { email: normalizedEmail },
+        include: { tenant: { select: { slug: true } } },
       });
       if (user) {
         tenantId = user.tenantId;
         userId = user.id;
         userName = `${user.firstName} ${user.lastName}`.trim();
+        if (user.tenant?.slug === (process.env.CANDIDATE_TENANT_SLUG ?? 'kofeko-candidates')) {
+          isCandidate = true;
+        }
       }
     } else {
       const tenant = await authRepository.findTenantBySlug(payload.tenantSlug);
       if (tenant) {
         tenantId = tenant.id;
-        const user = await authRepository.findUserByTenantAndEmail(tenant.id, payload.email);
+        if (tenant.slug === (process.env.CANDIDATE_TENANT_SLUG ?? 'kofeko-candidates')) {
+          isCandidate = true;
+        }
+        const user = await authRepository.findUserByTenantAndEmail(tenant.id, normalizedEmail);
         if (user) {
           userId = user.id;
           userName = `${user.firstName} ${user.lastName}`.trim();
-          userId = user.id;
         }
       }
     }
@@ -1205,7 +1214,8 @@ export const authService = {
       expiresAt: getResetTokenExpiryDate(),
     });
 
-    const resetLink = `${env.APP_FRONTEND_URL}/reset-password?token=${rawToken}`;
+    const resetLink = `${env.APP_FRONTEND_URL}/reset-password?token=${rawToken}${isCandidate ? '&from=candidate' : ''}`;
+    logger.info({ email: userEmail, resetLink }, 'Password reset link generated');
 
     await sendEmail({
       to: userEmail,

@@ -90,6 +90,14 @@ export async function sendEmail(options: {
     try {
       await sendViaResend(options);
     } catch (error: unknown) {
+      if (error instanceof AppError && error.statusCode === StatusCodes.BAD_REQUEST && process.env.NODE_ENV !== 'production') {
+        console.warn(`[Resend Sandbox Notice]: Could not deliver email to "${options.to}" via Resend (${error.message}). Logging email subject and content for local testing.`);
+        console.log('=== TEST EMAIL CONTENT ===');
+        console.log(`To: ${options.to}`);
+        console.log(`Subject: ${options.subject}`);
+        console.log('==========================');
+        return;
+      }
       if (error instanceof AppError) throw error;
       const msg = error instanceof Error ? error.message : String(error);
       if (msg.includes('ECONNREFUSED') || msg.includes('fetch failed')) {

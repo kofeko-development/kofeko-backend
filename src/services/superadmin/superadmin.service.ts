@@ -10,6 +10,7 @@ import { AppError } from '../../common/errors/AppError';
 import { emailFieldError } from '../../common/errors/fieldErrors';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { prisma } from '../../config/prisma';
+import { logger } from '../../common/logger/logger';
 import { superAdminTwoFactorService } from './superadmin-2fa.service';
 
 const sanitizeSuperAdmin = <T extends { passwordHash: string; twoFactorSecret?: string | null; twoFactorBackupCodes?: string[] }>(
@@ -278,6 +279,7 @@ export const superAdminService = {
 
     const resetLink = `${env.APP_FRONTEND_URL}/superadmin/reset-password?token=${rawToken}`;
     const userName = `${admin.firstName} ${admin.lastName}`.trim();
+    logger.info({ email: admin.email, resetLink }, 'Superadmin password reset link generated');
 
     await sendEmail({
       to: admin.email,
