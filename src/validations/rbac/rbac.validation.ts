@@ -4,7 +4,26 @@ export const createRoleSchema = z.object({
   body: z.object({
     name: z.string().min(2).max(80),
     description: z.string().max(250).optional(),
+    permissionKeys: z.array(z.string()).optional(),
   }),
+});
+
+export const updateRoleSchema = z.object({
+  params: z.object({
+    roleId: z.uuid(),
+  }),
+  body: z.object({
+    name: z.string().min(2).max(80),
+    description: z.string().max(250).optional(),
+    permissionKeys: z.array(z.string()).min(1),
+  }),
+});
+
+export const deleteRoleSchema = z.object({
+  params: z.object({
+    roleId: z.uuid(),
+  }),
+  body: z.object({}).optional(),
 });
 
 export const createPermissionSchema = z.object({

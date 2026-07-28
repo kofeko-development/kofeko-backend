@@ -17,6 +17,7 @@ export const inviteUserSchema = z.object({
     lastName: z.string().min(1).max(80),
     email: z.email(),
     roleName: z.enum([ROLE_NAMES.COMPANY_ADMIN, ROLE_NAMES.HR_MANAGER, ROLE_NAMES.RECRUITER, ROLE_NAMES.INTERVIEWER]).optional(),
+    roleId: z.string().uuid().optional(),
     /** Job title / custom role label (required when permissionKeys is used). */
     position: z.string().min(1).max(120).optional(),
     /** Custom permission set for invited user (creates a dedicated tenant role). */

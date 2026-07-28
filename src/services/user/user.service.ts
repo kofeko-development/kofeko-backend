@@ -8,6 +8,7 @@ import { generateInviteToken, getInviteTokenExpiryDate } from '../../common/auth
 import { PERMISSIONS } from '../../common/constants/permissions';
 import { ROLE_NAMES } from '../../common/constants/roles';
 import { prisma } from '../../config/prisma';
+import { rbacRepository } from '../../repositories/rbac/rbac.repository';
 import { sendEmail } from '../../common/email/emailProvider';
 import { generateReadableTemporaryPassword } from '../../common/auth/temporaryPassword';
 import { inviteEmailTemplate } from '../../common/email/templates/inviteEmail';
@@ -137,7 +138,14 @@ export const userService = {
     let role: Role;
     let auditRoleName: string;
 
-    if (customKeys.length > 0) {
+    if (payload.roleId) {
+      const foundRole = await rbacRepository.getRoleById(payload.tenantId, payload.roleId);
+      if (!foundRole) {
+        throw new AppError('Role not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+      }
+      role = foundRole;
+      auditRoleName = role.name;
+    } else if (customKeys.length > 0) {
       const title = payload.position?.trim();
       if (!title) {
         throw new AppError(

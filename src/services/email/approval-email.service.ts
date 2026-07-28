@@ -8,6 +8,7 @@ type SendApprovalEmailInput = {
   username: string;
   /** Omitted when the admin chose their password at registration (not echoed by email). */
   password?: string;
+  message?: string;
 };
 
 export const sendCompanyApprovalEmail = async (input: SendApprovalEmailInput): Promise<boolean> => {
@@ -23,12 +24,18 @@ export const sendCompanyApprovalEmail = async (input: SendApprovalEmailInput): P
         <p style="margin: 6px 0;"><strong>Login URL:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
         <p style="margin: 6px 0;"><strong>Tenant Slug:</strong> ${input.tenantSlug}</p>
         <p style="margin: 6px 0;"><strong>Username (Email):</strong> ${input.username}</p>
-        ${
-          input.password
-            ? `<p style="margin: 6px 0;"><strong>Password:</strong> ${input.password}</p>`
-            : `<p style="margin: 6px 0;"><strong>Password:</strong> Use the password you created when you submitted your company registration.</p>`
-        }
+        ${input.password
+      ? `<p style="margin: 6px 0;"><strong>Password:</strong> ${input.password}</p>`
+      : `<p style="margin: 6px 0;"><strong>Password:</strong> Use the password you created when you submitted your company registration.</p>`
+    }
       </div>
+
+      ${input.message ? `
+        <div style="margin: 24px 0; padding: 16px; background-color: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 4px;">
+          <h3 style="margin-top: 0; margin-bottom: 8px; color: #166534; font-size: 16px;">Message from Superadmin:</h3>
+          <p style="margin: 0; color: #15803d; white-space: pre-wrap;">${input.message}</p>
+        </div>
+      ` : ''}
 
       <p>Sign in with your email and password using the tenant slug above.</p>
       <p style="margin-top: 24px;">Thanks,<br/>Kofeko Team</p>

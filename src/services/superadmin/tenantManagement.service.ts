@@ -132,6 +132,10 @@ export const tenantManagementService = {
     const companyId = tenant.companyId;
 
     // Delete tenant (cascading deletes users, jobs, candidates, etc)
+    // Manually delete relations that lack onDelete: Cascade
+    await prisma.rolePermission.deleteMany({ where: { tenantId: id } });
+    await prisma.userRole.deleteMany({ where: { tenantId: id } });
+
     await prisma.tenant.delete({
       where: { id }
     });
@@ -142,6 +146,11 @@ export const tenantManagementService = {
         where: { id: companyId }
       });
     }
+
+    // Also delete any associated CompanyRegistrationRequest so the UI doesn't show a broken approved request
+    await prisma.companyRegistrationRequest.deleteMany({
+      where: { approvedTenantId: id }
+    });
 
     // Since tenant is deleted, we can't create an audit log referencing the tenantId directly as a foreign key if auditlog has cascade, wait!
     // AuditLog has tenantId. If we deleted the tenant, we can't store audit log for it unless we detach it.

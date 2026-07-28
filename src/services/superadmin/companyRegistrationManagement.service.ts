@@ -5,36 +5,50 @@ import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { authRepository } from '../../repositories/auth/auth.repository';
 import { sendCompanyApprovalEmail, sendCompanyRejectionEmail } from '../email/approval-email.service';
-
-import { CompanyRegistrationStatus } from '@prisma/client';
+import { prisma } from '../../config/prisma';
+import { CompanyRegistrationStatus, Tenant } from '@prisma/client';
 
 export const companyRegistrationManagementService = {
   async listRequests(filter?: { status?: CompanyRegistrationStatus }) {
     const rows = await authRepository.listCompanyRegistrationRequests(filter);
-    return rows.map((r) => ({
-      id: r.id,
-      companyName: r.companyName,
-      companyAddress: r.companyAddress,
-      industry: r.industry,
-      companySize: r.companySize,
-      companyType: r.companyType,
-      foundedYear: r.foundedYear,
-      companyWebsite: r.companyWebsite,
-      officialCompanyAddress: r.officialCompanyAddress,
-      phoneNumber: r.phoneNumber ?? '',
-      companyLogo: r.companyLogo,
-      shortDescription: r.shortDescription,
-      linkedinUrl: r.linkedinUrl,
-      twitterUrl: r.twitterUrl,
-      termsAccepted: r.termsAccepted,
-      contactName: r.contactName,
-      contactEmail: r.contactEmail,
-      adminEmail: r.adminEmail ?? '',
-      usesSignupCredentials: Boolean(r.adminPasswordHash && r.adminEmail),
-      status: r.status,
-      approvedTenantId: r.approvedTenantId,
-      createdAt: r.createdAt.toISOString(),
-    }));
+
+    // Fetch related tenants to get restriction data
+    const tenantIds = rows.map((r) => r.approvedTenantId).filter(Boolean) as string[];
+    let tenants: Tenant[] = [];
+    if (tenantIds.length > 0) {
+      tenants = await prisma.tenant.findMany({ where: { id: { in: tenantIds } } });
+    }
+    const tenantMap = new Map(tenants.map(t => [t.id, t]));
+
+    return rows.map((r) => {
+      const tenant = r.approvedTenantId ? tenantMap.get(r.approvedTenantId) : null;
+      return {
+        id: r.id,
+        companyName: r.companyName,
+        companyAddress: r.companyAddress,
+        industry: r.industry,
+        companySize: r.companySize,
+        companyType: r.companyType,
+        foundedYear: r.foundedYear,
+        companyWebsite: r.companyWebsite,
+        officialCompanyAddress: r.officialCompanyAddress,
+        phoneNumber: r.phoneNumber ?? '',
+        companyLogo: r.companyLogo,
+        shortDescription: r.shortDescription,
+        linkedinUrl: r.linkedinUrl,
+        twitterUrl: r.twitterUrl,
+        termsAccepted: r.termsAccepted,
+        contactName: r.contactName,
+        contactEmail: r.contactEmail,
+        adminEmail: r.adminEmail ?? '',
+        usesSignupCredentials: Boolean(r.adminPasswordHash && r.adminEmail),
+        status: r.status,
+        approvedTenantId: r.approvedTenantId,
+        tenantStatus: tenant?.status,
+        suspendedUntil: tenant?.suspendedUntil?.toISOString(),
+        createdAt: r.createdAt.toISOString(),
+      };
+    });
   },
 
   async approveRequest(
@@ -93,6 +107,7 @@ export const companyRegistrationManagementService = {
       tenantSlug: tenant.slug,
       username: adminEmailNorm,
       password: passwordFromSignup ? undefined : body.adminPassword,
+      message: body.reviewNotes,
     }).catch(() => undefined);
 
     return {

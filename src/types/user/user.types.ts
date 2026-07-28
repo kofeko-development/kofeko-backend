@@ -18,6 +18,7 @@ export type InviteUserInput = {
   lastName: string;
   email: string;
   roleName?: RoleNameValue;
+  roleId?: string;
   /** Shown in email / audit; required when `permissionKeys` is set. */
   position?: string;
   /** When non-empty, creates a tenant-specific role with these permissions (invite “Other”). */

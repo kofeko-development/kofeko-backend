@@ -2,6 +2,7 @@ export type CreateRoleInput = {
   tenantId: string;
   name: string;
   description?: string;
+  permissionKeys?: string[];
 };
 
 export type CreatePermissionInput = {

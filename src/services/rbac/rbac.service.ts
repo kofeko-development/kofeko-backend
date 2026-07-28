@@ -16,7 +16,7 @@ export const rbacService = {
   },
 
   async attachPermissionToRole(payload: AttachPermissionToRoleInput) {
-    const role = await rbacRepository.getRoleById(payload.roleId);
+    const role = await rbacRepository.getRoleById(payload.tenantId, payload.roleId);
     const permission = await rbacRepository.getPermissionById(payload.permissionId);
 
     if (!role || role.tenantId !== payload.tenantId) {
@@ -31,7 +31,7 @@ export const rbacService = {
   },
 
   async assignRoleToUser(payload: AssignRoleToUserInput) {
-    const role = await rbacRepository.getRoleById(payload.roleId);
+    const role = await rbacRepository.getRoleById(payload.tenantId, payload.roleId);
     const user = await rbacRepository.getUserById(payload.userId);
 
     if (!role || role.tenantId !== payload.tenantId) {
@@ -55,5 +55,29 @@ export const rbacService = {
     }
 
     return rbacRepository.getUserPermissions(tenantId, userId);
+  },
+
+  async getRoles(tenantId: string) {
+    return rbacRepository.getRoles(tenantId);
+  },
+
+  async updateRole(tenantId: string, roleId: string, name: string, description: string | undefined, permissionKeys: string[]) {
+    const role = await rbacRepository.getRoleById(tenantId, roleId);
+    if (!role || role.tenantId !== tenantId) {
+      throw new AppError('Role not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+    return rbacRepository.updateRole(tenantId, roleId, name, description, permissionKeys);
+  },
+
+  async deleteRole(tenantId: string, roleId: string) {
+    const role = await rbacRepository.getRoleById(tenantId, roleId);
+    if (!role || role.tenantId !== tenantId) {
+      throw new AppError('Role not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+    // Prevent deletion of company_admin role if needed, but for now we trust RBAC_MANAGE
+    if (role.name === 'company_admin') {
+      throw new AppError('Cannot delete company_admin role', StatusCodes.BAD_REQUEST, ERROR_CODES.CONFLICT);
+    }
+    return rbacRepository.deleteRole(tenantId, roleId);
   },
 };

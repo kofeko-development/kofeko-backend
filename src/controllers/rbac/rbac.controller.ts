@@ -68,3 +68,31 @@ export const getUserPermissions = catchAsync(async (req: Request, res: Response)
 
   sendSuccess(res, StatusCodes.OK, 'User permissions fetched successfully', result);
 });
+
+export const getRoles = catchAsync(async (req: Request, res: Response) => {
+  const tenantId = String(req.user?.tenantId);
+  const result = await rbacService.getRoles(tenantId);
+
+  sendSuccess(res, StatusCodes.OK, 'Roles fetched successfully', result);
+});
+
+export const updateRole = catchAsync(async (req: Request, res: Response) => {
+  const { params, body } = req;
+  const tenantId = String(req.user?.tenantId);
+  const roleId = requireStringValue(params.roleId, 'roleId');
+  const { name, description, permissionKeys } = body as { name: string; description?: string; permissionKeys: string[] };
+  
+  const result = await rbacService.updateRole(tenantId, roleId, name, description, permissionKeys);
+
+  sendSuccess(res, StatusCodes.OK, 'Role updated successfully', result);
+});
+
+export const deleteRole = catchAsync(async (req: Request, res: Response) => {
+  const { params } = req;
+  const tenantId = String(req.user?.tenantId);
+  const roleId = requireStringValue(params.roleId, 'roleId');
+  
+  await rbacService.deleteRole(tenantId, roleId);
+
+  sendSuccess(res, StatusCodes.OK, 'Role deleted successfully', null);
+});
