@@ -23,17 +23,17 @@ export type EvaluationLabFile = {
 
 export type EvaluationLabResultItem =
   | {
-      fileName: string;
-      success: true;
-      overallScore: number;
-      rankingSummary: string;
-      analysis: AnalyzeResult;
-    }
+    fileName: string;
+    success: true;
+    overallScore: number;
+    rankingSummary: string;
+    analysis: AnalyzeResult;
+  }
   | {
-      fileName: string;
-      success: false;
-      error: string;
-    };
+    fileName: string;
+    success: false;
+    error: string;
+  };
 
 export const evaluationLabService = {
   async evaluateResumes(input: {
@@ -95,7 +95,7 @@ export const evaluationLabService = {
           fileName,
           success: true,
           overallScore: analysis.scores.overall,
-          rankingSummary: analysis.rankingSummary,
+          rankingSummary: analysis.hiringIntelligence.roleFitSummary,
           analysis,
         });
       } catch (err) {
