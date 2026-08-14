@@ -20,6 +20,7 @@ import {
 } from '../../common/linkedin/linkedinApiErrors';
 import { uploadFile } from '../../common/storage/fileUpload';
 import { auditService } from '../audit/audit.service';
+import { logger } from '../../common/logger/logger';
 
 const LI_AUTH = 'https://www.linkedin.com/oauth/v2';
 const LI_API = 'https://api.linkedin.com/v2';
@@ -232,12 +233,15 @@ async function fetchLinkedInOrgForMember(accessToken: string): Promise<OrgDiscov
       const orgRes = await fetch(url, { headers: LI_REST_HEADERS(accessToken) });
       if (!orgRes.ok) {
         lastError = await orgRes.text();
+        logger.error({ url, lastError, status: orgRes.status }, 'LinkedIn API organizationAcls failed');
         continue;
       }
       const orgData = (await orgRes.json()) as {
         elements?: Array<{ 'organization~'?: { id?: number; localizedName?: string } }>;
       };
       const first = orgData.elements?.[0]?.['organization~'];
+      logger.debug({ url, firstId: first?.id, firstName: first?.localizedName, elementsCount: orgData.elements?.length }, 'LinkedIn organizationAcls success');
+
       if (!first?.id) {
         lastError = 'No administrator company pages returned by LinkedIn.';
         continue;
@@ -331,7 +335,9 @@ export async function exchangeCodeForTokens(code: string, state: string) {
   });
 
   if (!tokenRes.ok) {
-    throwLinkedInApiError(await tokenRes.text(), 'oauth', tokenRes.status);
+    const errorText = await tokenRes.text();
+    logger.error({ errorText, status: tokenRes.status }, 'LinkedIn OAuth token exchange failed');
+    throwLinkedInApiError(errorText, 'oauth', tokenRes.status);
   }
 
   const tokens = (await tokenRes.json()) as {
@@ -340,6 +346,8 @@ export async function exchangeCodeForTokens(code: string, state: string) {
     scope?: string;
     id_token?: string;
   };
+  
+  logger.debug({ scope: tokens.scope, expiresIn: tokens.expires_in }, 'LinkedIn OAuth tokens received');
 
   let linkedInPersonId: string | undefined;
   let linkedInName: string | undefined;
@@ -382,8 +390,11 @@ export async function exchangeCodeForTokens(code: string, state: string) {
   }
 
   if (!linkedInPersonId) {
+    logger.error({ idTokenSub: idTokenPayload?.sub, userInfoSub: linkedInPersonId }, 'Could not resolve LinkedIn identity');
     throw new AppError('Could not resolve LinkedIn identity', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
   }
+
+  logger.info({ userId, tenantId, linkedInPersonId, linkedInName }, 'LinkedIn identity extracted successfully');
 
   const existing = await prisma.linkedInConnection.findUnique({
     where: { userId_linkedInPersonId: { userId, linkedInPersonId } },
