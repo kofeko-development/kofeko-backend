@@ -277,7 +277,7 @@ export const superAdminService = {
       },
     });
 
-    const resetLink = `${env.APP_FRONTEND_URL}/superadmin/reset-password?token=${rawToken}`;
+    const resetLink = `${env.SUPERADMIN_FRONTEND_URL}/reset-password?token=${rawToken}`;
     const userName = `${admin.firstName} ${admin.lastName}`.trim();
     logger.info({ email: admin.email, resetLink }, 'Superadmin password reset link generated');
 

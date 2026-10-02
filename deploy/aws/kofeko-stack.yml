@@ -271,6 +271,7 @@ Resources:
             - { Name: S3_BUCKET, Value: !Ref FilesBucket }
             - { Name: AWS_REGION, Value: !Ref AWS::Region }
             - { Name: API_PUBLIC_URL, Value: !Sub 'https://${ApiDomain}' }
+            - { Name: SUPERADMIN_FRONTEND_URL, Value: https://superadmin.kofeko.com }
             - { Name: NODE_OPTIONS, Value: --max-old-space-size=448 }
             - { Name: REDIS_URL, Value: 'redis://redis:6379' }
           Secrets:

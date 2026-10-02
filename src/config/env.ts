@@ -28,6 +28,8 @@ const envSchema = z.object({
   /** Public base URL of this API (no trailing path). Used for proxied upload URLs. */
   API_PUBLIC_URL: z.string().url().optional(),
   FRONTEND_URL: z.string().url().optional(),
+  /** Super admin portal origin (e.g. https://superadmin.kofeko.com). Defaults to <APP_FRONTEND_URL>/superadmin. */
+  SUPERADMIN_FRONTEND_URL: z.string().url().optional(),
 
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
@@ -190,6 +192,9 @@ export const env = {
   JWT_ACCESS_SECRET: parsed.data.JWT_ACCESS_SECRET ?? parsed.data.JWT_SECRET,
   JWT_REFRESH_SECRET: parsed.data.JWT_REFRESH_SECRET ?? parsed.data.JWT_SECRET,
   FRONTEND_URL: parsed.data.FRONTEND_URL ?? parsed.data.APP_FRONTEND_URL,
+  SUPERADMIN_FRONTEND_URL: (
+    parsed.data.SUPERADMIN_FRONTEND_URL ?? `${parsed.data.APP_FRONTEND_URL.replace(/\/$/, '')}/superadmin`
+  ).replace(/\/$/, ''),
   API_PUBLIC_URL:
     parsed.data.API_PUBLIC_URL ??
     `http://localhost:${parsed.data.PORT}`,

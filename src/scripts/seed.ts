@@ -75,8 +75,9 @@ async function bootstrapSuperAdminIfEmpty(): Promise<void> {
 
   const email = process.env.SEED_SUPERADMIN_EMAIL ?? 'devops@kofeko.com';
 
-  // Create only: the seed runs on every container start and must not reset a changed password.
-  if (await prisma.superAdmin.findUnique({ where: { email } })) {
+  // Create only when there is no super admin at all: the seed runs on every container start and must
+  // neither reset a changed password nor recreate this account after it was replaced/deleted.
+  if ((await prisma.superAdmin.count()) > 0) {
     return;
   }
 
