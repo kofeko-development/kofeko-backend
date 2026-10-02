@@ -72,7 +72,11 @@ Resources:
                   - ecs:DescribeServices
                   - ecs:UpdateService
                   - ecs:TagResource
+                  - ecs:ListTagsForResource
+                  - ecs:DeleteTaskDefinitions
                   - ssm:GetParameters
+                  # CloudFormation validates the AWS::EC2::Image::Id parameter on every update
+                  - ec2:DescribeImages
                 Resource: '*'
               - Effect: Allow
                 Action: iam:PassRole

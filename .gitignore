@@ -8,3 +8,6 @@ dummy-pdf/
 uploads/
 coverage
 .DS_Store
+
+# Never commit archives (one contained .env files)
+*.zip
