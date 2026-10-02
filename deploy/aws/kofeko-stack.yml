@@ -1,0 +1,361 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Kofeko backend - low-cost ECS setup. One ARM EC2 host running an ECS service (api + Caddy for HTTPS),
+  Redis sidecar, RDS Postgres in private subnets, env vars in Secrets Manager, uploads in S3. No load balancer, no NAT.
+
+Parameters:
+  ApiDomain:
+    Type: String
+    Default: api.kofeko.com
+  AppSecretArn:
+    Type: String
+    Description: Secrets Manager secret (JSON of all backend env vars incl. DATABASE_URL / DIRECT_URL)
+  DbPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    AllowedPattern: '[A-Za-z0-9]+'
+  FilesBucket:
+    Type: String
+  ImageTag:
+    Type: String
+    Default: latest
+  DesiredCount:
+    Type: Number
+    Default: 0
+    Description: Keep 0 until the database has been copied, then 1.
+  InstanceType:
+    Type: String
+    Default: t4g.micro
+  DbInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+  DbDeletionProtection:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Create with 'false' (so a failed first create can roll back), then update to 'true'.
+  # Pinned so routine deploys never replace the host. To upgrade the host OS, set this to the output of:
+  #   aws ssm get-parameter --name /aws/service/ecs/optimized-ami/amazon-linux-2023/arm64/recommended/image_id
+  EcsAmi:
+    Type: AWS::EC2::Image::Id
+    Default: ami-0fce5f742c60543e3
+
+Resources:
+  # ---------- Network: 2 public subnets (host), 2 private subnets (database), no NAT ----------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags: [{ Key: Name, Value: kofeko }]
+  Igw:
+    Type: AWS::EC2::InternetGateway
+  IgwAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: { VpcId: !Ref Vpc, InternetGatewayId: !Ref Igw }
+  PublicRt:
+    Type: AWS::EC2::RouteTable
+    Properties: { VpcId: !Ref Vpc }
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: IgwAttach
+    Properties: { RouteTableId: !Ref PublicRt, DestinationCidrBlock: 0.0.0.0/0, GatewayId: !Ref Igw }
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.0.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags: [{ Key: Name, Value: kofeko-public-a }]
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags: [{ Key: Name, Value: kofeko-public-b }]
+  PublicSubnetARt:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PublicSubnetA, RouteTableId: !Ref PublicRt }
+  PublicSubnetBRt:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PublicSubnetB, RouteTableId: !Ref PublicRt }
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.10.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{ Key: Name, Value: kofeko-private-a }]
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.11.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{ Key: Name, Value: kofeko-private-b }]
+
+  HostSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Kofeko ECS host - HTTP/HTTPS only (no SSH; use SSM Session Manager)
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
+  DbSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Kofeko Postgres - only from the ECS host
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref HostSg }
+
+  # ---------- Database ----------
+  DbSubnets:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: kofeko private subnets
+      SubnetIds: [!Ref PrivateSubnetA, !Ref PrivateSubnetB]
+  Db:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: kofeko-db
+      Engine: postgres
+      EngineVersion: '17'
+      DBInstanceClass: !Ref DbInstanceClass
+      DBName: kofeko
+      MasterUsername: kofeko
+      MasterUserPassword: !Ref DbPassword
+      AllocatedStorage: '20'
+      MaxAllocatedStorage: 100
+      StorageType: gp3
+      StorageEncrypted: true
+      MultiAZ: false
+      PubliclyAccessible: false
+      DBSubnetGroupName: !Ref DbSubnets
+      VPCSecurityGroups: [!Ref DbSg]
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: '20:00-21:00'
+      AutoMinorVersionUpgrade: true
+      DeletionProtection: !Ref DbDeletionProtection
+      CopyTagsToSnapshot: true
+
+  # ---------- Logs (ECR repo "kofeko-backend" is managed outside this stack) ----------
+  Logs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /kofeko/backend
+      RetentionInDays: 14
+
+  # ---------- ECS cluster + single EC2 host ----------
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: kofeko
+  HostRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{ Effect: Allow, Principal: { Service: ec2.amazonaws.com }, Action: sts:AssumeRole }]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+  HostProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: { Roles: [!Ref HostRole] }
+  Host:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref EcsAmi
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref HostProfile
+      # ap-south-1a had no t4g.micro capacity at creation time
+      SubnetId: !Ref PublicSubnetB
+      SecurityGroupIds: [!Ref HostSg]
+      MetadataOptions: { HttpTokens: required, HttpPutResponseHopLimit: 2 }
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: { VolumeSize: 30, VolumeType: gp3, Encrypted: true }
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          echo "ECS_CLUSTER=${Cluster}" >> /etc/ecs/ecs.config
+          echo "ECS_ENABLE_CONTAINER_METADATA=true" >> /etc/ecs/ecs.config
+          mkdir -p /var/lib/caddy
+          # 1 GB swap as headroom on the 1 GB instance
+          fallocate -l 1G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+          echo '/swapfile none swap sw 0 0' >> /etc/fstab
+      Tags: [{ Key: Name, Value: kofeko-ecs-host }]
+  HostIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Host
+      Tags: [{ Key: Name, Value: kofeko-api }]
+  # Restart/recover the host automatically if AWS-side checks fail
+  HostRecoverAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Recover kofeko ECS host on system check failure
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Dimensions: [{ Name: InstanceId, Value: !Ref Host }]
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions: [!Sub 'arn:aws:automate:${AWS::Region}:ec2:recover']
+
+  # ---------- Task roles ----------
+  ExecRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{ Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: sts:AssumeRole }]
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy]
+      Policies:
+        - PolicyName: read-app-secret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement: [{ Effect: Allow, Action: secretsmanager:GetSecretValue, Resource: !Ref AppSecretArn }]
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{ Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: sts:AssumeRole }]
+      Policies:
+        - PolicyName: files-bucket
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - { Effect: Allow, Action: [s3:GetObject, s3:PutObject], Resource: !Sub 'arn:aws:s3:::${FilesBucket}/*' }
+
+  # ---------- Backend service: api + Caddy (HTTPS via Let's Encrypt) ----------
+  ApiTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: kofeko-api
+      NetworkMode: bridge
+      RequiresCompatibilities: [EC2]
+      RuntimePlatform: { CpuArchitecture: ARM64, OperatingSystemFamily: LINUX }
+      ExecutionRoleArn: !GetAtt ExecRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      Volumes:
+        - Name: caddy-data
+          Host: { SourcePath: /var/lib/caddy }
+      ContainerDefinitions:
+        - Name: api
+          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/kofeko-backend:${ImageTag}'
+          Essential: true
+          MemoryReservation: 384
+          Memory: 640
+          # Every start: apply migrations, then the idempotent seed (roles/permissions, first admins)
+          Command: [sh, -c, 'npx prisma migrate deploy && node dist/scripts/seed.js && exec node dist/server.js']
+          Links: [redis]
+          DependsOn: [{ ContainerName: redis, Condition: START }]
+          Environment:
+            - { Name: NODE_ENV, Value: production }
+            - { Name: PORT, Value: '5001' }
+            - { Name: STORAGE_PROVIDER, Value: s3 }
+            - { Name: S3_BUCKET, Value: !Ref FilesBucket }
+            - { Name: AWS_REGION, Value: !Ref AWS::Region }
+            - { Name: API_PUBLIC_URL, Value: !Sub 'https://${ApiDomain}' }
+            - { Name: NODE_OPTIONS, Value: --max-old-space-size=448 }
+            - { Name: REDIS_URL, Value: 'redis://redis:6379' }
+          Secrets:
+            - { Name: APP_SECRETS_JSON, ValueFrom: !Ref AppSecretArn }
+            - { Name: DATABASE_URL, ValueFrom: !Sub '${AppSecretArn}:DATABASE_URL::' }
+            - { Name: DIRECT_URL, ValueFrom: !Sub '${AppSecretArn}:DIRECT_URL::' }
+          HealthCheck:
+            Command: [CMD-SHELL, "node -e \"fetch('http://localhost:5001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 90
+          LogConfiguration:
+            LogDriver: awslogs
+            Options: { awslogs-group: !Ref Logs, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: api }
+        # Cache only (app falls back to in-memory if it is down). Move to ElastiCache before running 2+ tasks.
+        - Name: redis
+          Image: public.ecr.aws/docker/library/redis:7-alpine
+          Essential: false
+          MemoryReservation: 32
+          Memory: 128
+          Command: [redis-server, --maxmemory, 64mb, --maxmemory-policy, allkeys-lru, --save, '', --appendonly, 'no']
+          LogConfiguration:
+            LogDriver: awslogs
+            Options: { awslogs-group: !Ref Logs, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: redis }
+        - Name: caddy
+          Image: public.ecr.aws/docker/library/caddy:2-alpine
+          Essential: true
+          MemoryReservation: 32
+          Memory: 128
+          Links: [api]
+          DependsOn: [{ ContainerName: api, Condition: START }]
+          # Caddy streams text/event-stream (SSE) responses without buffering
+          Command: [caddy, reverse-proxy, --from, !Ref ApiDomain, --to, 'api:5001']
+          PortMappings:
+            - { ContainerPort: 80, HostPort: 80 }
+            - { ContainerPort: 443, HostPort: 443 }
+          MountPoints: [{ SourceVolume: caddy-data, ContainerPath: /data }]
+          LogConfiguration:
+            LogDriver: awslogs
+            Options: { awslogs-group: !Ref Logs, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: caddy }
+  ApiService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: kofeko-api
+      Cluster: !Ref Cluster
+      LaunchType: EC2
+      TaskDefinition: !Ref ApiTask
+      DesiredCount: !Ref DesiredCount
+      # Fixed host ports on one host: stop old task before starting new one (~30s blip on deploy)
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+        DeploymentCircuitBreaker: { Enable: true, Rollback: true }
+      EnableExecuteCommand: false
+
+  # ---------- One-off ops task (DB copy / manual dumps). Run with `aws ecs run-task`. ----------
+  OpsTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: kofeko-ops
+      NetworkMode: bridge
+      RequiresCompatibilities: [EC2]
+      RuntimePlatform: { CpuArchitecture: ARM64, OperatingSystemFamily: LINUX }
+      ExecutionRoleArn: !GetAtt ExecRole.Arn
+      ContainerDefinitions:
+        - Name: ops
+          Image: public.ecr.aws/docker/library/postgres:17-alpine
+          Essential: true
+          Memory: 256
+          Command: [sh, -c, 'echo "override the command"']
+          Secrets:
+            - { Name: APP_SECRETS_JSON, ValueFrom: !Ref AppSecretArn }
+            - { Name: DATABASE_URL, ValueFrom: !Sub '${AppSecretArn}:DATABASE_URL::' }
+          LogConfiguration:
+            LogDriver: awslogs
+            Options: { awslogs-group: !Ref Logs, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: ops }
+
+Outputs:
+  ApiPublicIp:
+    Description: Point the api DNS A record here (Cloudflare - DNS only, grey cloud)
+    Value: !Ref HostIp
+  DbEndpoint:
+    Value: !GetAtt Db.Endpoint.Address
+  HostInstanceId:
+    Value: !Ref Host
+  HostAmi:
+    Value: !Ref EcsAmi

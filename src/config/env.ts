@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
+import './loadAppSecrets';
+
 dotenv.config();
 
 // Prisma `directUrl` expects DIRECT_URL; for local Postgres use the same URI as DATABASE_URL.
@@ -44,7 +46,10 @@ const envSchema = z.object({
   /** Resend "from" (verified domain or onboarding@resend.dev for tests). Falls back to SMTP_FROM. */
   RESEND_FROM: z.string().optional(),
 
-  STORAGE_PROVIDER: z.enum(['local', 'supabase', 'firebase']).default('local'),
+  STORAGE_PROVIDER: z.enum(['local', 'supabase', 'firebase', 's3']).default('local'),
+  /** S3 bucket for STORAGE_PROVIDER=s3. Credentials come from the instance role / default AWS chain. */
+  S3_BUCKET: z.string().optional(),
+  AWS_REGION: z.string().default('ap-south-1'),
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_STORAGE_BUCKET: z.string().optional(),
@@ -157,6 +162,11 @@ if (parsed.data.STORAGE_PROVIDER === 'supabase') {
     console.error(`Missing required Supabase env vars for STORAGE_PROVIDER=supabase: ${supabaseMissing.join(', ')}`);
     process.exit(1);
   }
+}
+
+if (parsed.data.STORAGE_PROVIDER === 's3' && !parsed.data.S3_BUCKET?.trim()) {
+  console.error('Missing required env var for STORAGE_PROVIDER=s3: S3_BUCKET');
+  process.exit(1);
 }
 
 if (missing.length) {

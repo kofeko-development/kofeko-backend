@@ -1,0 +1,73 @@
+# Local, production-like run of the backend stack (production runs on ECS: see deploy/aws).
+#   caddy    -> HTTPS (free Let's Encrypt certs) + reverse proxy
+#   api      -> Express backend (this repo's Dockerfile)
+#   postgres -> database (replaces Supabase Postgres)
+#   redis    -> cache (replaces Render Redis)
+#
+# Run from this folder:  docker compose up -d --build
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: ../.env.production
+    environment:
+      PORT: 5001
+      DATABASE_URL: postgresql://kofeko:${POSTGRES_PASSWORD}@postgres:5432/kofeko
+      DIRECT_URL: postgresql://kofeko:${POSTGRES_PASSWORD}@postgres:5432/kofeko
+      REDIS_URL: redis://redis:6379
+      NODE_OPTIONS: --max-old-space-size=512
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kofeko
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: kofeko
+    # Not published to the internet; reach it over SSH tunnel if needed.
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    command: postgres -c shared_buffers=128MB -c max_connections=50
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kofeko -d kofeko"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Pure cache: the app falls back to in-memory if Redis is down, so no persistence needed.
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pg_data:

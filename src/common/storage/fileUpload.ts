@@ -5,6 +5,7 @@ import path from 'node:path';
 import admin from 'firebase-admin';
 
 import { env } from '../../config/env';
+import { putS3Object } from './s3';
 
 function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]+/g, '_');
@@ -28,6 +29,13 @@ function publicFileUrl(key: string): string {
 
 export async function uploadFile(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
   const provider = (env.STORAGE_PROVIDER || 'local').toLowerCase();
+
+  if (provider === 's3') {
+    // Same key layout as Supabase, so migrated objects keep their /api/v1/files/uploads/... URLs.
+    const key = `uploads/${crypto.randomUUID()}-${sanitizeFilename(filename)}`;
+    await putS3Object(key, buffer, mimeType);
+    return publicFileUrl(key);
+  }
 
   if (provider === 'supabase') {
     const supabaseUrl = env.SUPABASE_URL;

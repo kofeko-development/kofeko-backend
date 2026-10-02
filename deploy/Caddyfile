@@ -1,0 +1,7 @@
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy api:5001 {
+		# Stream SSE (/realtime) responses immediately instead of buffering
+		flush_interval -1
+	}
+}

@@ -1,3 +1,4 @@
+import '../config/loadAppSecrets';
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../common/auth/password';
@@ -73,21 +74,21 @@ async function bootstrapSuperAdminIfEmpty(): Promise<void> {
   }
 
   const email = process.env.SEED_SUPERADMIN_EMAIL ?? 'devops@kofeko.com';
-  const passwordHash = await hashPassword(bootstrapConfig.adminPassword);
 
-  await prisma.superAdmin.upsert({
-    where: { email },
-    update: {
-      passwordHash,
-    },
-    create: {
+  // Create only: the seed runs on every container start and must not reset a changed password.
+  if (await prisma.superAdmin.findUnique({ where: { email } })) {
+    return;
+  }
+
+  await prisma.superAdmin.create({
+    data: {
       email,
       firstName: 'DevOps',
       lastName: 'Admin',
-      passwordHash,
+      passwordHash: await hashPassword(bootstrapConfig.adminPassword),
     },
   });
-  console.log('Seeded/Updated SuperAdmin');
+  console.log('Seeded SuperAdmin');
 }
 
 async function seedTenantPermissionsAndAdminRole(): Promise<void> {

@@ -6,6 +6,7 @@ import { catchAsync } from '../../common/utils/catchAsync';
 import { AppError } from '../../common/errors/AppError';
 import { ERROR_CODES } from '../../common/errors/errorCodes';
 import { env } from '../../config/env';
+import { getS3Object } from '../../common/storage/s3';
 
 const MIME_BY_EXT: Record<string, string> = {
   '.jpg': 'image/jpeg',
@@ -34,6 +35,20 @@ export const serveStorageFile = catchAsync(async (req: Request, res: Response) =
   assertSafeUploadPath(filePath);
 
   const provider = (env.STORAGE_PROVIDER || 'local').toLowerCase();
+
+  if (provider === 's3') {
+    const object = await getS3Object(filePath);
+    if (!object) {
+      throw new AppError('File not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    res.set('Content-Type', contentTypeForPath(filePath));
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.status(StatusCodes.OK).send(object.body);
+    return;
+  }
 
   if (provider === 'supabase') {
     const supabaseUrl = env.SUPABASE_URL;
