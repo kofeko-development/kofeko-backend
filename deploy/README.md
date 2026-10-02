@@ -29,7 +29,7 @@ Everything except the ECR repo `kofeko-backend` and the secret is defined in [`a
 | Task | How |
 |---|---|
 | Deploy backend code | Push to `main` → GitHub Actions "Deploy backend (AWS ECS)" (or `bash deploy/aws/deploy.sh` locally). Prisma migrations run on container start. ~30 s of downtime. |
-| Production DB from your laptop | `bash deploy/aws/with-prod-db.sh npx prisma studio` (SSM tunnel to RDS on `localhost:5433`; needs `brew install --cask session-manager-plugin`). Also `... npx prisma migrate status`, or no command to just hold the tunnel open for a GUI client. |
+| Production DB from your laptop | `bash deploy/aws/with-prod-db.sh npx prisma studio` (SSM tunnel to RDS on `localhost:15432`; needs `brew install --cask session-manager-plugin`). Also `... npx prisma migrate status`, or no command to just hold the tunnel open for a GUI client. |
 | Set super admin email/password | `bash deploy/aws/with-prod-db.sh npx ts-node --transpile-only src/scripts/setSuperAdmin.ts` (prompts; password input hidden). Portal: https://superadmin.kofeko.com |
 | Change an env var | Edit secret `kofeko/prod/backend` in Secrets Manager, then `aws ecs update-service --cluster kofeko --service kofeko-api --force-new-deployment` |
 | Logs | CloudWatch log group `/kofeko/backend` (or `aws logs tail /kofeko/backend --follow`) |
