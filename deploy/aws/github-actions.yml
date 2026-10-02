@@ -78,6 +78,21 @@ Resources:
                   # CloudFormation validates the AWS::EC2::Image::Id parameter on every update
                   - ec2:DescribeImages
                 Resource: '*'
+              # Read-only lookups CloudFormation makes while re-resolving the template
+              - Effect: Allow
+                Action:
+                  - ecs:DescribeClusters
+                  - rds:DescribeDBInstances
+                  - ec2:DescribeInstances
+                  - ec2:DescribeAddresses
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeVpcs
+                  - logs:DescribeLogGroups
+                Resource: '*'
+              - Effect: Allow
+                Action: iam:GetRole
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${StackName}-*'
               - Effect: Allow
                 Action: iam:PassRole
                 Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${StackName}-*'
