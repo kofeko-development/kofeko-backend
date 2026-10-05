@@ -217,6 +217,7 @@ export const candidateAuthService = {
         lastLoginAt: true,
         createdAt: true,
         updatedAt: true,
+        passwordHash: true,
       },
     });
     if (!candidate) {
@@ -236,9 +237,55 @@ export const candidateAuthService = {
       hobbies: candidate.hobbies,
       skills: candidate.skills,
       linkedinUrl: candidate.linkedinUrl,
+      // Website accounts keep the password on their User record; older portal accounts on the Candidate
+      hasPassword:
+        Boolean(candidate.passwordHash) || (await prisma.user.count({ where: { id: candidateId, tenantId } })) > 0,
       roles: ['candidate'],
     };
     });
+  },
+
+  /**
+   * Change the candidate's password. Website sign-ups (email or Google) are User records in the candidate
+   * tenant, so their password lives on the User; older portal accounts keep it on the Candidate row
+   * (where it can be empty, in which case this sets it).
+   */
+  async changePassword(
+    candidateId: string,
+    tenantId: string,
+    payload: { currentPassword?: string; newPassword: string },
+  ): Promise<void> {
+    const verifyCurrent = async (hash: string) => {
+      const isMatch = payload.currentPassword ? await comparePassword(payload.currentPassword, hash) : false;
+      if (!isMatch) {
+        throw new AppError('Incorrect current password', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      }
+    };
+    const newHash = await hashPassword(payload.newPassword);
+
+    const user = await prisma.user.findFirst({
+      where: { id: candidateId, tenantId },
+      select: { id: true, passwordHash: true },
+    });
+    if (user) {
+      await verifyCurrent(user.passwordHash);
+      await prisma.user.update({ where: { id: user.id }, data: { passwordHash: newHash } });
+      await cacheService.invalidateCandidateSession(tenantId, candidateId);
+      return;
+    }
+
+    const candidate = await prisma.candidate.findFirst({
+      where: { id: candidateId, tenantId },
+      select: { id: true, passwordHash: true },
+    });
+    if (!candidate) {
+      throw new AppError('Candidate not found', StatusCodes.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+    if (candidate.passwordHash) {
+      await verifyCurrent(candidate.passwordHash);
+    }
+    await prisma.candidate.update({ where: { id: candidate.id }, data: { passwordHash: newHash } });
+    await cacheService.invalidateCandidateSession(tenantId, candidateId);
   },
 };
 

@@ -47,6 +47,14 @@ export const portalMe = catchAsync(async (req: Request, res: Response) => {
   sendSuccess(res, StatusCodes.OK, 'Candidate profile fetched', result);
 });
 
+export const portalChangePassword = catchAsync(async (req: Request, res: Response) => {
+  const candidateId = String(req.candidate?.candidateId);
+  const tenantId = String(req.candidate?.tenantId);
+  const payload = getRequestBody<{ currentPassword?: string; newPassword: string }>(req);
+  await candidateAuthService.changePassword(candidateId, tenantId, payload);
+  sendSuccess(res, StatusCodes.OK, 'Password updated', null);
+});
+
 export const portalListJobs = catchAsync(async (req: Request, res: Response) => {
   const tenantSlug = requireStringValue(req.params.tenantSlug, 'tenantSlug');
   const department = (req.query.department as string | undefined) ?? undefined;

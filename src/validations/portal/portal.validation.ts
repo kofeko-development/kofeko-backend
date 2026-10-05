@@ -19,6 +19,16 @@ export const candidateRegisterSchema = z.object({
     .strict(),
 });
 
+export const candidateChangePasswordSchema = z.object({
+  body: z
+    .object({
+      // Optional only for older portal accounts that have no password yet
+      currentPassword: z.string().max(200).optional(),
+      newPassword: passwordSchema,
+    })
+    .strict(),
+});
+
 export const candidateLoginSchema = z.object({
   body: z
     .object({

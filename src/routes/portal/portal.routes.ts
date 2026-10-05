@@ -6,6 +6,7 @@ import {
   candidateRefreshSchema,
   candidateRegisterSchema,
   myApplicationsQuerySchema,
+  candidateChangePasswordSchema,
   portalAllJobsQuerySchema,
   portalAnyJobIdParamSchema,
   portalJobIdParamSchema,
@@ -26,6 +27,7 @@ import {
   portalRefresh,
   portalRegisterCandidate,
   portalUpdateProfile,
+  portalChangePassword,
   portalCheckPhone,
   portalParseResume,
   portalUploadResume,
@@ -131,6 +133,15 @@ portalRouter.get('/auth/me', authenticateCandidate, portalMe);
  *     summary: Update candidate profile (portal)
  */
 portalRouter.patch('/profile', authenticateCandidate, validateRequest(updatePortalProfileSchema), portalUpdateProfile);
+
+/**
+ * @openapi
+ * /api/v1/portal/auth/change-password:
+ *   post:
+ *     tags: [Portal]
+ *     summary: Change the candidate's password (sets it for portal accounts that have none)
+ */
+portalRouter.post('/auth/change-password', authenticateCandidate, validateRequest(candidateChangePasswordSchema), portalChangePassword);
 
 /**
  * @openapi
