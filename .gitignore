@@ -11,3 +11,6 @@ coverage
 
 # Never commit archives (one contained .env files)
 *.zip
+
+# Demo candidate pack: real people's resumes, never commit (repo is public)
+demo-data/

@@ -7,6 +7,10 @@ import { parsePagination } from '../../common/utils/pagination';
 import { requireStringValue } from '../../common/utils/requestValue';
 import { jobService } from '../../services/job/job.service';
 import { evaluationService } from '../../services/evaluation/evaluation.service';
+import { demoCandidatesService } from '../../services/job/demoCandidates.service';
+import { AppError } from '../../common/errors/AppError';
+import { ERROR_CODES } from '../../common/errors/errorCodes';
+import type { DemoCandidate } from '../../common/constants/demoCandidates';
 import { CreateJobInput, UpdateJobInput } from '../../types/job/job.types';
 
 export const createJob = catchAsync(async (req: Request, res: Response) => {
@@ -98,4 +102,34 @@ export const getJobRankings = catchAsync(async (req: Request, res: Response) => 
   const tenantId = String(req.user?.tenantId);
   const result = await evaluationService.getRankings(jobId, tenantId);
   sendSuccess(res, StatusCodes.OK, 'Rankings fetched successfully', result);
+});
+
+export const installDemoCandidates = catchAsync(async (req: Request, res: Response) => {
+  const tenantId = String(req.user?.tenantId);
+  const files = ((req as Request & { files?: Express.Multer.File[] }).files ?? []) as Express.Multer.File[];
+  let pack: DemoCandidate[];
+  try {
+    pack = JSON.parse(String(req.body?.pack ?? ''));
+  } catch {
+    throw new AppError('pack must be a JSON array of demo candidates', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+  if (!Array.isArray(pack) || pack.length === 0) {
+    throw new AppError('pack must be a JSON array of demo candidates', StatusCodes.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+  const result = await demoCandidatesService.installPack(tenantId, req.user?.email, pack, files);
+  sendSuccess(res, StatusCodes.OK, 'Demo candidates installed', result);
+});
+
+export const importDemoCandidates = catchAsync(async (req: Request, res: Response) => {
+  const jobId = requireStringValue(req.params.jobId, 'jobId');
+  const tenantId = String(req.user?.tenantId);
+  const result = await demoCandidatesService.importToJob(tenantId, jobId, req.user?.email);
+  sendSuccess(res, StatusCodes.OK, 'Demo candidates imported', result);
+});
+
+export const removeDemoCandidates = catchAsync(async (req: Request, res: Response) => {
+  const jobId = requireStringValue(req.params.jobId, 'jobId');
+  const tenantId = String(req.user?.tenantId);
+  const result = await demoCandidatesService.removeFromJob(tenantId, jobId, req.user?.email);
+  sendSuccess(res, StatusCodes.OK, 'Demo candidates removed', result);
 });

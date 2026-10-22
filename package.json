@@ -10,6 +10,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "seed:test": "ts-node src/scripts/seedTestData.ts",
+    "demo:build": "ts-node --transpile-only src/scripts/buildDemoCandidates.ts",
+    "demo:install": "ts-node --transpile-only src/scripts/installDemoCandidates.ts",
     "lint": "eslint .",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",

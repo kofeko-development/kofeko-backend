@@ -16,3 +16,6 @@ coverage
 
 tests
 src/__tests__
+
+# Demo candidate pack: real people's resumes, never commit (repo is public)
+demo-data/

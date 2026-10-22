@@ -30,6 +30,8 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url().optional(),
   /** Super admin portal origin (e.g. https://superadmin.kofeko.com). Defaults to <APP_FRONTEND_URL>/superadmin. */
   SUPERADMIN_FRONTEND_URL: z.string().url().optional(),
+  /** Comma-separated company logins allowed to import the demo candidate pack into their jobs. */
+  DEMO_IMPORT_EMAILS: z.string().default('chirag@kofeko.com'),
 
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),

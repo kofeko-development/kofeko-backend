@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { authenticate } from '../../common/middlewares/authenticate';
 import { authorize } from '../../common/middlewares/authorize';
 import { validateRequest } from '../../common/middlewares/validateRequest';
@@ -10,9 +11,12 @@ import {
   evaluateAllForJob,
   getJob,
   getJobRankings,
+  importDemoCandidates,
+  installDemoCandidates,
   listJobs,
   pauseJob,
   publishJob,
+  removeDemoCandidates,
   updateJob,
 } from '../../controllers/job/job.controller';
 import {
@@ -24,6 +28,10 @@ import {
 } from '../../validations/job/job.validation';
 
 const jobRouter = Router();
+const demoPackUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024, files: 50 },
+});
 
 /**
  * @openapi
@@ -158,6 +166,44 @@ jobRouter.post(
   authorize([PERMISSIONS.EVALUATION_CREATE]),
   validateRequest(jobIdParamSchemaV2),
   evaluateAllForJob,
+);
+
+/**
+ * @openapi
+ * /api/v1/jobs/demo-candidates/install:
+ *   post:
+ *     tags: [Jobs]
+ *     summary: Upload the demo candidate pack (multipart pack JSON + resumes) into this company
+ * /api/v1/jobs/{jobId}/demo-candidates:
+ *   post:
+ *     tags: [Jobs]
+ *     summary: Apply the demo candidate pack to a job (only for accounts in DEMO_IMPORT_EMAILS)
+ *   delete:
+ *     tags: [Jobs]
+ *     summary: Remove the demo candidates' applications from a job
+ */
+jobRouter.post(
+  '/demo-candidates/install',
+  authenticate,
+  authorize([PERMISSIONS.CANDIDATE_CREATE]),
+  demoPackUpload.array('resumes', 50),
+  installDemoCandidates,
+);
+
+jobRouter.post(
+  '/:jobId/demo-candidates',
+  authenticate,
+  authorize([PERMISSIONS.PIPELINE_CREATE]),
+  validateRequest(jobIdParamSchemaV2),
+  importDemoCandidates,
+);
+
+jobRouter.delete(
+  '/:jobId/demo-candidates',
+  authenticate,
+  authorize([PERMISSIONS.PIPELINE_CREATE]),
+  validateRequest(jobIdParamSchemaV2),
+  removeDemoCandidates,
 );
 
 /**
